@@ -1,0 +1,10 @@
+*.original
+*.backup
+*.sh
+config.json
+*.swp
+__pycache__
+*.pyc
+*log.txt
+*data/tests/*
+*.log

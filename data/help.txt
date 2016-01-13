@@ -1,0 +1,7 @@
+Hello! I'm 11tprobot.
+List of public commands for 11tprobot:
+3:def <word/phrase> - displays definition of a phrase|| 3:info - shows info about this bot || 3:help - shows this help message || 3:def list - prints out list of all words in dictionary || 3:def search <term> - searches for all words and definitions containing `term` in the dictionary || 3:told <user> - tells someone how hard they just got told  || 3:nottold <user> - tells someone how hard they just DIDN'T get told
+3:test - displays test output of this bot || 3:partyboat [word1] [word2] - start the party boat up || 3:w <query> - search for an article on wikipedia and display a short summary
+List of admin/restricted commands for 11tprobot:
+3:echo <#channel> <text> - echoes text || 3:def add <word/phrase> - <definition> - adds entry to bot dictionary || 3:def edit <word/phrase> - <definition> || 3:def remove <word/phrase> || 3:stop - stops bot (don't use this you asshole) || 3:invite <#channel> - tells this bot to join a channel || 3:spam <target> <num> <message> - Spam a target with a message a certain number of times
+3:log-append - append something to the system log

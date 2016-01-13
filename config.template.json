@@ -1,0 +1,14 @@
+{
+    "name": "Freenode IRC",
+    "address": "freenode.net",
+    "port": "6667",
+    "nick": "probot",
+    "password": "",
+    "channels": "#bots",
+    "encrypt": "N",
+    "intro": "Hello, world!",
+    "prefix": ":",
+    "admin": "camconn",
+    "adminpass": "hunter2",
+    "oxr_id": "Put your OpenExchangeRates APP_ID here."
+}
