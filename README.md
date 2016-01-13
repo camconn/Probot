@@ -72,9 +72,10 @@ The setup is very simple. Install some modules and you're good!
 2) Install required pip modules: `pip install requests bs4 hurry.filesize` should do it. Use a virtualenv if you want.
 3) Copy `config.template.json` to `config.json`.
 4) Edit `config.json` to your liking. The options are self-explanatory.
-5) Run `./probot` to start the bot.
-6) ???
-7) PROFIT!!!
+5) If you aren't using the OpenExchangeRates API, then disable the plugin or all hell will break loose.
+6) Run `./probot` to start the bot.
+7) ???
+8) PROFIT!!!
 
 ### Creating a Plugin
 To create a plugin, create a copy of `plugins/template.py`, and read the included
