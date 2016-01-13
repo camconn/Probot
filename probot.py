@@ -72,6 +72,7 @@ class IRCClient(asynchat.async_chat):
         self.set_terminator(bytes('\r\n', FORMATTING))
         self.nick = nick
         self.shared_data = shared_data
+        self.channels = shared_data['conf']['channels'].split(' ')
 
     def write(self, text):
         if len(text) != 4 and text != 'STOP':
@@ -83,7 +84,9 @@ class IRCClient(asynchat.async_chat):
     def handle_connect(self): 
         self.write('NICK {}'.format(self.nick))
         self.write('USER {0} {0} {0} :An IRC Bot created by linuxtinkerer'.format(self.nick))
-        self.write('JOIN #test')
+        for c in self.channels:
+            self.write('JOIN {}'.format(c))
+            self.shared_data['chan'].append(c)
         #self.write(('USER', self.uid, '+iw', self.nick), self.name)
 
     def collect_incoming_data(self, data: str): 
@@ -147,7 +150,7 @@ def load_builtins(shared):
     shared['cooldown']['join'] = 1
 
 
-def load_plugins(shared: dict) -> list:
+def load_plugins(shared: dict):
     #print(os.path.join(shared['dir'], 'plugins'))
 
     # Clear up existing plugins and commands
@@ -169,12 +172,12 @@ def load_plugins(shared: dict) -> list:
             module = import_module('.' + modname, package='plugins')
             reload(module)
             print('Loaded {}'.format(module))
-            if module.__hasattr__('__plugin_enabled__'):
-                if module.__plugin_enabled__ == True:
+            if '__plugin_enabled__' in dir(module):
+                if module.__plugin_enabled__:
                     plugin_list.append(module)
                     continue
 
-            disabled.append(module)
+            disabled.append(modname)
 
         except Exception as e:
             print('Couldn\'t load {}'.format(modname))
@@ -203,16 +206,18 @@ def reload_command(arg, packet, shared):
     fails, disabled = load_plugins(shared)
     if len(fails) + len(disabled) == 0:
         return packet.reply('All {} plugins reloaded!'.format(len(plugin_list)))
-    else:
-        response = (packet.reply('{} plugins were reloaded.'.format(len(plugin_list))),
-                    packet.reply('The following were NOT loaded: '))
 
-        if len(fails) > 0:
-            response += (packet.reply('Fails:  ' + ', '.join(fails)), )
-        if len(disabled) > 0:
-            response += (packet.reply('Disabled: '  + ', '.join(disabled)), )
+    response = (packet.reply('{} plugins were reloaded.'.format(len(plugin_list))),
+                packet.reply('The following were NOT loaded: '))
 
-        response += (packet.reply('Please check your logs for further information.'))
+    if len(fails) > 0:
+        response += (packet.reply('Fails:  ' + ', '.join(fails)), )
+    if len(disabled) > 0:
+        response += (packet.reply('Disabled: '  + ', '.join(disabled)), )
+
+    response += (packet.reply('Please check your logs for further information.'), )
+
+    return response
 
 
 def load_textfile(filename):
@@ -324,7 +329,7 @@ def setup(config):
     }
 
     # load plugins. This *has* to happend *after* shared_data is set up
-    load_plugins(shared_data)
+    a, b = load_plugins(shared_data)
     print('plugins: {}'.format(plugin_list))
 
     # TODO: Keep list of last 30 packets and the channels they are from

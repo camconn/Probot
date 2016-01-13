@@ -176,7 +176,7 @@ def whatis_command(arg, packet, shared):
     if currency not in CURRENCIES:
         return ircp.make_notice('I don\'t know what "{}" is!'.format(currency), packet.sender)
     else:
-        return ircp.make_notice('{} is {}'.format(orig_currency, CURRENCIES[currency]), packet.sender)
+        return packet.reply('{} is {}'.format(orig_currency, CURRENCIES[currency]))
 
 
 def setup_resources(config: dict, shared: dict):
