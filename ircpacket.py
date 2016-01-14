@@ -123,6 +123,7 @@ class Packet:
 
         elif message_type == 'JOIN':
             self.msg_type = message_type
+            self.target = message_list[2][1:]
         elif message_type == 'PART':
             self.msg_type = message_type
         elif message_type == 'QUIT':
@@ -194,11 +195,11 @@ def make_notice(message, target):
     return make_message(message, target, msg_type='NOTICE')
 
 
-def join_chan(channel, intro=None):
-    """
-    Create a join message
-    """
-    if intro:
-        return ('JOIN {}'.format(channel), make_message(intro, channel))
-    else:
-        return 'JOIN {}'.format(channel)
+def join_chan(channel):
+    ''' Create a join message '''
+    return 'JOIN {}'.format(channel)
+
+
+def leave_chan(channel):
+    ''' Leave a channel '''
+    return 'PART {}'.format(channel)

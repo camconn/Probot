@@ -35,12 +35,16 @@ or meant for crude, stupid jokes.
     - `:commands` - list available commands
     - `:test` - check to see if the bot is working
     - `:info` - display version and bot information
-    - `:reload` - reload external plugins **on the fly!**
+    - `:reload` - reload external plugins **on the fly!** (admins only)
     - `:join` - join a channel (admins only)
     - `:stop` - stop this irc bot (admins only)
     - `:log` - write something to log (admins only)
     - `:plugins` - list available plugins
     - `:plugin` - get information about a plugin
+    - `:restart` - restarts the bot
+    - `:channels` - list channels currenly in (admins only)
+    - `:join` - join a channel (admins only)
+    - `:part` - leave a channel (admins only)
 - Default plugin commands:
     - `:calc` - simple calculator
     - `:convert` - currency conversion
@@ -82,7 +86,8 @@ The setup is very simple. Install some modules and you're good!
 
 ### Creating a Plugin
 To create a plugin, create a copy of `plugins/template.py`, and read the included
-instructions on how to create a plugin.
+instructions on how to create a plugin.  You are free to use this template, given that
+it is released under the same license as this project.
 
 License
 -------

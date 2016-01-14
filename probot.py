@@ -23,23 +23,21 @@ import time
 import os
 import json
 import logging
-import re
 import time
 import os
 import irc_argparse
 from collections import deque
 from importlib import import_module, reload
 import pkgutil
-import asyncore
 import asynchat
-import re
-import traceback
+import asyncore
+from traceback import format_exc
+from sys import stdout
+from types import GeneratorType
 
 import ircpacket as ircp
-import builtin_commands as b
 
 import plugins
-#print('plugin path: {}'.format(plugins.__path__))
 plugin_list = []
 disabled = []
 
@@ -63,6 +61,15 @@ formatting = 'UTF-8'  # format of this file - DO NOT TOUCH
 FORMATTING = 'UTF-8'
 
 
+STOP = 0
+RESTART = 1
+
+
+def is_iterable(obj):
+    ''' Figure out if an object is iterable '''
+    return type(obj) == list or type(obj) == tuple or \
+            type(obj) == GeneratorType
+
 class IRCClient(asynchat.async_chat):
     ''' Asyncronous IRC client that handles chat, networking IO,
     and everything else that goes along with that.
@@ -73,14 +80,11 @@ class IRCClient(asynchat.async_chat):
         self.set_terminator(bytes('\r\n', FORMATTING))
         self.nick = nick
         self.shared_data = shared_data
-        self.channels = shared_data['conf']['channels'].split(' ')
+        self.restart = False
 
     def write(self, text):
-        if len(text) != 4 and text != 'STOP':
-            print('DEBUG OUT: {}'.format(text))
-            self.push(bytes('{}\r\n'.format(text), FORMATTING))
-        else:
-            self.close()
+        print('DEBUG OUT: {}'.format(text))
+        self.push(bytes('{}\r\n'.format(text), FORMATTING))
 
     def handle_connect(self): 
         ''' Responsible for inital connection to the
@@ -88,9 +92,6 @@ class IRCClient(asynchat.async_chat):
         '''
         self.write('NICK {}'.format(self.nick))
         self.write('USER {0} {0} {0} :An IRC Bot created by linuxtinkerer'.format(self.nick))
-        for c in self.channels:
-            self.write('JOIN {}'.format(c))
-            self.shared_data['chan'].append(c)
         #self.write(('USER', self.uid, '+iw', self.nick), self.name)
 
 
@@ -111,9 +112,26 @@ class IRCClient(asynchat.async_chat):
 
         if type(reply) == str:
             self.write(reply)
-        elif type(reply) == list or type(reply) == tuple:
+        elif is_iterable(reply):
             for message in reply:
-                self.write(message)
+                if type(message) == str:
+                    self.write(message)
+                elif type(message) == int:
+                    self.handlequit(message)
+
+    def handlequit(self, flag):
+        ''' Method to handle restarts and shutdowns
+        '''
+        if flag == STOP:
+            self.close()
+        elif flag == RESTART:
+            self.restart= True
+            self.close()
+        else:
+            print('Don\'t know what to do with flag value {}'.format(flage))
+            print('So I\'m just gonna quit')
+            self.close()
+
 
     def run(self, host, port): 
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -121,6 +139,7 @@ class IRCClient(asynchat.async_chat):
         self.connect((host, port))
         time.sleep(0.1)
         asyncore.loop(65)
+        return self.restart
 
 
     def handle_error(self):
@@ -128,7 +147,7 @@ class IRCClient(asynchat.async_chat):
         disconnect from the server. After all, uptime is
         the #1 priority!
         '''
-        trace = traceback.format_exc()
+        trace = format_exc()
         try:
             print(trace)
             logging.debug('An error occurred...\nHere\'s the traceback:')
@@ -136,48 +155,34 @@ class IRCClient(asynchat.async_chat):
         except Exception as e:
             print('An error broke loose!')
 
-
-def load_builtins(shared):
+def load_builtins(shared: dict):
+    ''' Small set of internal commands used to maintain state.
+    This *CANNOT* crash, so it's maintained internally. This
+    is not allowed fail loading, or be reloaded.
+    '''
     com = shared['commands']
 
-    com['help'] = b.help_command
-    com['stop'] = b.stop_command
-    com['test'] = b.test_command 
-    com['log'] = b.log_append_command
+    com['stop'] = stop_command
+    com['restart'] = stop_command
     com['reload'] = reload_command
-    com['info'] = b.info_command
-    com['commands'] = b.command_list
-    com['join'] = b.join_command
     com['plugin'] = plugin_info_command
     com['plugins'] = plugin_info_command
-    com['auth'] = b.auth_command
-    print('Loaded built-in commands')
+    com['auth'] = auth_command
 
-    shared['help']['stop'] = 'Stop this bot and make it quit || :stop <password>'
-    shared['help']['help'] = 'Get help about a command || :help <command> || :help :rekt'
-    shared['help']['info'] = 'Get operating information about this bot || :info'
-    shared['help']['test'] = 'Test to see if this bot is still working || :test'
+    shared['help']['stop'] = 'Stop this bot and make it quit (admins only) || :stop'
+    shared['help']['restart'] = 'Stop this bot and make it restart (admins only) || :restart'
     shared['help']['reload'] = 'Reload this bot\'s plugins || :reload'
-    shared['help']['log'] = 'Write information to this bot\'s log (admins only) || :log <message> || :log this is a log message'
-    shared['help']['commands'] = 'List all available commands || :commands'
-    shared['help']['join'] = 'Ask for this bot to join a channel || :join <channel> || :join #bot-overlords'
     shared['help']['plugin'] = 'Get information about a plugin || :plugin <plugin> || :plugin wikipedia'
     shared['help']['plugins'] = 'List all plugins available || :plugins'
     shared['help']['auth'] = 'Authenticate yourself || :auth <password> || :auth hunter2'
 
     shared['cooldown']['stop'] = 5
-    shared['cooldown']['help'] = 3
-    shared['cooldown']['info'] = 1
-    shared['cooldown']['test'] = 1
+    shared['cooldown']['restart'] = 5
     shared['cooldown']['reload'] = 3
-    shared['cooldown']['log'] = 1
-    shared['cooldown']['commands'] = 10
-    shared['cooldown']['join'] = 1
-
-    # Maybe make these admin only?
     shared['cooldown']['plugin'] = 2
     shared['cooldown']['plugins'] = 5
     shared['cooldown']['auth'] = 1
+
 
 
 def load_plugins(shared: dict, to_load=None):
@@ -257,6 +262,29 @@ def reload_command(arg: tuple, packet: ircp.Packet, shared: dict):
     return response
 
 
+def stop_command(arg: list, packet: ircp.Packet, shared: dict):
+    '''
+    Stops this bot
+    '''
+    import logging
+    print('Stop command called')
+    if packet.sender in shared['auth']:
+        if arg[0].lower() == 'stop':
+            logging.info('Stop command received; stopping bot.')
+            return STOP
+        elif arg[0].lower() == 'restart':
+            logging.info('Restart command received; stopping bot.')
+            return RESTART
+        else:
+            print('wtf just happened here?')
+    else:
+        write_to_log('User {0} tried to run `stop` command.'.format(packet.sender))
+        return_msg = ('STOP TRYING TO BREAK THIS BOT, ASSHOLE. THIS INCIDENT '
+                      'WILL BE REPORTED TO SANTA CLAUS, ANONYMOOSE, THE '
+                      'HACKER 4CHAN, TEH FBI, THE CIA, AND THE NSA!!!111!!one!1')
+        return ircp.make_notice(return_msg, packet.sender)
+
+
 def plugin_info_command(arg: tuple, packet: ircp.Packet, shared: dict):
     '''
     Does stuff to plugins
@@ -312,6 +340,28 @@ def plugin_info_command(arg: tuple, packet: ircp.Packet, shared: dict):
         return output
     else:
         print('You dun\' goofed.')
+
+
+def auth_command(arg: tuple, packet: ircp.Packet, shared: dict):
+    ''' Authenticate yourself
+
+    :auth <password>
+    '''
+    if len(arg) < 2:
+        return packet.reply('You must specify a password!')
+
+    passphrase = arg[1]
+
+    if passphrase == shared['conf']['adminpass']:
+        if packet.sender in shared['auth']:
+            return packet.reply('You are already logged in!')
+        else:
+            shared['auth'].append(packet.sender)
+            print('{} successfully authenticated.'.format(packet.sender))
+            return packet.reply('Authentication success!')
+    else:
+        return packet.reply('Authentication failure. Try again later.')
+
 
 
 def load_textfile(filename):
@@ -393,17 +443,13 @@ def setup(config):
     }
 
 
-    info_str = 'probot version {0} by linuxtinkerer'.format(VERSION)
+    info_str = 'probot version {0}. My owner is {2}{1}{3}.'.format(VERSION, config['admin'], CLR_NICK, CLR_RESET)
     commands = dict()
 
     # This object acts as a form of persistent memory for the commands. This is particularly
     # useful for commands like `def` and `told`
     shared_data = {
         'conf': config,
-        #'defs': def_dict,
-        #'dict_sorted': tuple(sorted(def_dict)),
-        #'is_new_words': False,
-        #'told': told_tuple,
         'info': info_str,
         'chan': [],
         'dir': os.getcwd(),
@@ -474,9 +520,6 @@ def handle_incoming(line, shared_data):
     #elif (not shared_data['conf']['logged_in']) and msg_packet.msg_type == 'NUMERIC':
     #    if msg_packet.numeric == ircp.Packet.numerics['RPL_ENDOFMOTD']:  # When first logging in
     #        reply = ircp.make_message('identify {}'.format(config['password']), 'NickServ')
-    #        print('logging in')
-    #        #elif msg_packet.numeric == ircp.Packet.numerics['RPL_HOSTHIDDEN']:  # If cloak applied
-    #        print('cloak applied')
     #        reply = []
     #        for channel in config['channels'].split(' '):
     #            if config['intro']:
@@ -487,26 +530,37 @@ def handle_incoming(line, shared_data):
     #            print('Joining channel {}'.format(channel))
     #            shared_data['chan'].append(channel)
     #        shared_data['conf']['logged_in'] = True  # Stop checking for login numerics
-    #    else:
-    #        pass
+
+    elif msg_packet.msg_type == 'NUMERIC':
+        if msg_packet.numeric == ircp.Packet.numerics['RPL_ENDOFMOTD']:
+            reply = (ircp.join_chan(c) for c in shared['conf']['channels'].split(' '))
+            #shared_data['chan'].extend(c for c in shared['conf']['channels'].split(' '))
     elif msg_packet.msg_type == 'PING':
         reply = 'PONG {}'.format(msg_packet.host)
+
     elif msg_packet.msg_type == 'NICK':
         print('{} changed nick to {}'.format(msg_packet.sender, msg_packet.nick_to))
         if msg_packet.sender in shared['auth']:
             shared['auth'].remove(msg_packet.sender)
             shared['auth'].append(msg_packet.nick_to)
             print('moved {} to {} on auth list'.format(msg_packet.sender, msg_packet.nick_to))
+
     elif msg_packet.msg_type in ('PART', 'QUIT'):
         if msg_packet.sender in shared['auth']:
             shared['auth'].remove(msg_packet.sender)
             print('removed {} from auth list'.format(msg_packet.sender))
+
+    elif msg_packet.msg_type == 'JOIN':
+        if msg_packet.sender == shared['conf']['bot_nick']:
+            shared['chan'].append(msg_packet.target)
+            reply = ircp.make_message(shared['conf']['intro'], msg_packet.target)
     else:
         pass
 
-    if (type(reply) == str) and (reply == 'STOP'):
+    if (type(reply) == int):
+        flag = int(reply)
         reply = [ircp.make_message('kthxbai', c) for c in shared_data['chan']]
-        reply.append('STOP')  # Makes sure to close out.
+        reply.append(flag) # Makes sure to close out.
 
     shared_data['recent_messages'].append(msg_packet)
 
@@ -534,7 +588,12 @@ if __name__ == '__main__':
 
     # Create second thread
     client = IRCClient(bot_nick, shared)
-    client.run(server, port)
+    restart = client.run(server, port)
+
+    if restart:
+        print('restarting')
+        stdout.flush()
+        os.execl('./probot.py', '')
 
     # Do any needed tying of loose ends
     # Wait for other thread to stop then close pipe

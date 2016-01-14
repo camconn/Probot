@@ -29,6 +29,8 @@ import re
 import ircpacket as ircp
 
 REGEX_SUB ='^s/.*/.*(\/(g?))?$'
+ITALICS = chr(int("0x1d", 0))
+CLR_RESET = ''
 
 
 def sub_replace(regex, packet: ircp.Packet, shared: dict) -> str:
@@ -49,6 +51,7 @@ def sub_replace(regex, packet: ircp.Packet, shared: dict) -> str:
     
     # Now, find the last message in the same channel that
     # contains `old`
+    orig_packet = None
     output = ''
 
     print('looking for "{}"'.format(old))
@@ -56,6 +59,7 @@ def sub_replace(regex, packet: ircp.Packet, shared: dict) -> str:
         if p.target == packet.target:
             if p.msg_public and (p.text.find(old) != -1):
                 output = str(p.text)
+                orig_packet = p
                 break
     else:
         return packet.reply('Could not find a suitable substitution target.')
@@ -63,12 +67,16 @@ def sub_replace(regex, packet: ircp.Packet, shared: dict) -> str:
 
     print('replacing "{}" with "{}"'.format(old, new))
     print('original: "{}"'.format(output))
+    # patch in italics
+    new = ITALICS + new + CLR_RESET
+
+
     if global_flag:
         output = output.replace(old, new)
     else:
         output = output.replace(old, new, 1)
 
-    return packet.reply('<{}> {}'.format(packet.sender, output))
+    return packet.reply('<{}> {}'.format(orig_packet.sender, output))
 
 
 def setup_resources(config: dict, shared: dict):
