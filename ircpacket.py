@@ -35,9 +35,8 @@ class Packet:
     numeric - what the numeric of this message is (None if not a status message)
     text - text contents of message, if applicable
     is_action - whether the message is an action such as /me or /describe
-
-    TODO: Look into making this class into a superclass with subclasses for
-    specific types of packets (e.g. JoinPacket, MessagePacket, PingPacket, etc.)
+    nick_from - with NICK commands, tells what nick the user changed from
+    nick_to - with NICK commands, tells what nick the user changed to
     """
 
     # Dictionary of relevant numerics and their codes
@@ -80,6 +79,7 @@ class Packet:
         self.numeric = None
         self.text = None
         self.is_action = None
+        self.nick_to = None
 
         # Detect if message is valid
         #assert ':' in message != -1
@@ -120,7 +120,10 @@ class Packet:
                 self.target = message_target
         elif message_type == 'NICK':
             self.msg_type = message_type
+
         elif message_type == 'JOIN':
+            self.msg_type = message_type
+        elif message_type == 'PART':
             self.msg_type = message_type
         elif message_type == 'QUIT':
             self.msg_type = message_type
@@ -148,6 +151,8 @@ class Packet:
                 # Get rid of the '\001ACTION' at beginning of message
                 # And '\001' at end of message
                 self.text = self.text[8:-1]
+        elif message_type == 'NICK':
+            self.nick_to = message_list[2][1:]
 
     def reply(self, message):
         '''

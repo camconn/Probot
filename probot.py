@@ -27,13 +27,13 @@ import re
 import time
 import os
 import irc_argparse
-#from collections import deque
+from collections import deque
 from importlib import import_module, reload
-from importlib.machinery import PathFinder
 import pkgutil
 import asyncore
 import asynchat
 import re
+import traceback
 
 import ircpacket as ircp
 import builtin_commands as b
@@ -83,12 +83,16 @@ class IRCClient(asynchat.async_chat):
             self.close()
 
     def handle_connect(self): 
+        ''' Responsible for inital connection to the
+        IRC server, as well as setting our nickname
+        '''
         self.write('NICK {}'.format(self.nick))
         self.write('USER {0} {0} {0} :An IRC Bot created by linuxtinkerer'.format(self.nick))
         for c in self.channels:
             self.write('JOIN {}'.format(c))
             self.shared_data['chan'].append(c)
         #self.write(('USER', self.uid, '+iw', self.nick), self.name)
+
 
     def collect_incoming_data(self, data: str): 
         self.ibuffer += data
@@ -119,6 +123,20 @@ class IRCClient(asynchat.async_chat):
         asyncore.loop(65)
 
 
+    def handle_error(self):
+        ''' We handle the error here so that we don't
+        disconnect from the server. After all, uptime is
+        the #1 priority!
+        '''
+        trace = traceback.format_exc()
+        try:
+            print(trace)
+            logging.debug('An error occurred...\nHere\'s the traceback:')
+            logging.debug(trace)
+        except Exception as e:
+            print('An error broke loose!')
+
+
 def load_builtins(shared):
     com = shared['commands']
 
@@ -132,6 +150,7 @@ def load_builtins(shared):
     com['join'] = b.join_command
     com['plugin'] = plugin_info_command
     com['plugins'] = plugin_info_command
+    com['auth'] = b.auth_command
     print('Loaded built-in commands')
 
     shared['help']['stop'] = 'Stop this bot and make it quit || :stop <password>'
@@ -144,6 +163,7 @@ def load_builtins(shared):
     shared['help']['join'] = 'Ask for this bot to join a channel || :join <channel> || :join #bot-overlords'
     shared['help']['plugin'] = 'Get information about a plugin || :plugin <plugin> || :plugin wikipedia'
     shared['help']['plugins'] = 'List all plugins available || :plugins'
+    shared['help']['auth'] = 'Authenticate yourself || :auth <password> || :auth hunter2'
 
     shared['cooldown']['stop'] = 5
     shared['cooldown']['help'] = 3
@@ -157,6 +177,7 @@ def load_builtins(shared):
     # Maybe make these admin only?
     shared['cooldown']['plugin'] = 2
     shared['cooldown']['plugins'] = 5
+    shared['cooldown']['auth'] = 1
 
 
 def load_plugins(shared: dict, to_load=None):
@@ -211,11 +232,13 @@ def load_plugins(shared: dict, to_load=None):
     return failed_loads
 
 
-def reload_command(arg, packet, shared):
+def reload_command(arg: tuple, packet: ircp.Packet, shared: dict):
     '''
     Reloads all plugins as well as their data files
     '''
-    print('Unloaded all plugins!')
+    if packet.sender not in shared['auth']:
+        return packet.reply('You aren\'t authenticated for that! You need to :auth')
+
     print('Reload command called')
     fails = load_plugins(shared)
     if len(fails) + len(disabled) == 0:
@@ -233,10 +256,14 @@ def reload_command(arg, packet, shared):
 
     return response
 
-def plugin_info_command(arg, packet, shared):
+
+def plugin_info_command(arg: tuple, packet: ircp.Packet, shared: dict):
     '''
     Does stuff to plugins
     '''
+    if packet.sender not in shared['auth']:
+        return packet.reply('You must be admin to do this. Try doing :auth')
+
     comm = arg[0].lower()
     config = shared['conf']
     global disabled
@@ -363,9 +390,7 @@ def setup(config):
         'intro': m_config['intro'],
         'adminpass': m_config['adminpass'],
         'oxr_id': m_config['oxr_id'],
-        'plugins.enabled': dict(),
-        'plugins.disabled': dict(),
-        }
+    }
 
 
     info_str = 'probot version {0} by linuxtinkerer'.format(VERSION)
@@ -388,6 +413,8 @@ def setup(config):
         're_response': dict(),
         'cooldown_user': dict(),
         'cooldown': dict(),
+        'auth': list(),
+        'recent_messages': deque(maxlen=30)
     }
 
     # load plugins. This *has* to happend *after* shared_data is set up
@@ -444,32 +471,44 @@ def handle_incoming(line, shared_data):
                     print('matched {}'.format(re_name))
                     reply = shared_data['re_response'][re_name](regex, msg_packet, shared_data)
                     break
-    elif (not shared_data['conf']['logged_in']) and msg_packet.msg_type == 'NUMERIC':
-        if msg_packet.numeric == ircp.Packet.numerics['RPL_ENDOFMOTD']:  # When first logging in
-            reply = ircp.make_message('identify {}'.format(config['password']), 'NickServ')
-            print('logging in')
-            #elif msg_packet.numeric == ircp.Packet.numerics['RPL_HOSTHIDDEN']:  # If cloak applied
-            print('cloak applied')
-            reply = []
-            for channel in config['channels'].split(' '):
-                if config['intro']:
-                    j, r = ircp.join_chan(channel, config['intro'])
-                    reply.extend((j, r))
-                else:
-                    reply.append(ircp.join_chan(channel))
-                print('Joining channel {}'.format(channel))
-                shared_data['chan'].append(channel)
-            shared_data['conf']['logged_in'] = True  # Stop checking for login numerics
-        else:
-            pass
+    #elif (not shared_data['conf']['logged_in']) and msg_packet.msg_type == 'NUMERIC':
+    #    if msg_packet.numeric == ircp.Packet.numerics['RPL_ENDOFMOTD']:  # When first logging in
+    #        reply = ircp.make_message('identify {}'.format(config['password']), 'NickServ')
+    #        print('logging in')
+    #        #elif msg_packet.numeric == ircp.Packet.numerics['RPL_HOSTHIDDEN']:  # If cloak applied
+    #        print('cloak applied')
+    #        reply = []
+    #        for channel in config['channels'].split(' '):
+    #            if config['intro']:
+    #                j, r = ircp.join_chan(channel, config['intro'])
+    #                reply.extend((j, r))
+    #            else:
+    #                reply.append(ircp.join_chan(channel))
+    #            print('Joining channel {}'.format(channel))
+    #            shared_data['chan'].append(channel)
+    #        shared_data['conf']['logged_in'] = True  # Stop checking for login numerics
+    #    else:
+    #        pass
     elif msg_packet.msg_type == 'PING':
         reply = 'PONG {}'.format(msg_packet.host)
+    elif msg_packet.msg_type == 'NICK':
+        print('{} changed nick to {}'.format(msg_packet.sender, msg_packet.nick_to))
+        if msg_packet.sender in shared['auth']:
+            shared['auth'].remove(msg_packet.sender)
+            shared['auth'].append(msg_packet.nick_to)
+            print('moved {} to {} on auth list'.format(msg_packet.sender, msg_packet.nick_to))
+    elif msg_packet.msg_type in ('PART', 'QUIT'):
+        if msg_packet.sender in shared['auth']:
+            shared['auth'].remove(msg_packet.sender)
+            print('removed {} from auth list'.format(msg_packet.sender))
     else:
         pass
 
     if (type(reply) == str) and (reply == 'STOP'):
         reply = [ircp.make_message('kthxbai', c) for c in shared_data['chan']]
         reply.append('STOP')  # Makes sure to close out.
+
+    shared_data['recent_messages'].append(msg_packet)
 
     return reply
 

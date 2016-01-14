@@ -88,8 +88,7 @@ def stop_command(arg: list, packet: ircp.Packet, shared: dict):
     '''
     import logging
     print('Stop command called')
-    sender = packet.sender.lower()
-    if len(arg) == 2 and arg[1] == shared['conf']['adminpass']:
+    if packet.sender in shared['auth']:
         logging.info('STOP command received; stopping bot.')
         return 'STOP'
     else:
@@ -185,3 +184,23 @@ def join_command(arg, packet, shared):
         #return ircp.make_message('You do not have permission for this command', packet.sender)
         return packet.reply('You do not have permission to perform this command.')
 
+
+def auth_command(arg: tuple, packet: ircp.Packet, shared: dict):
+    ''' Authenticate yourself
+
+    :auth <password>
+    '''
+    if len(arg) < 2:
+        return packet.reply('You must specify a password!')
+
+    passphrase = arg[1]
+
+    if passphrase == shared['conf']['adminpass']:
+        if packet.sender in shared['auth']:
+            return packet.reply('You are already logged in!')
+        else:
+            shared['auth'].append(packet.sender)
+            print('{} successfully authenticated.'.format(packet.sender))
+            return packet.reply('Authentication success!')
+    else:
+        return packet.reply('Authentication failure. Try again later.')

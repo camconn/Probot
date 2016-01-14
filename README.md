@@ -30,14 +30,17 @@ or meant for crude, stupid jokes.
 - Command aliases - `:convert` can become `:c`
 - Command throttling (via cooldowns per command)
 - Built-in commands:
-    - `:help <command>` - get help for a command
+    - `:auth` - authenticate yourself as a bot operator
+    - `:help` - get psychiatric counseling
     - `:commands` - list available commands
     - `:test` - check to see if the bot is working
     - `:info` - display version and bot information
     - `:reload` - reload external plugins **on the fly!**
-    - `:join <channel>` - join a channel (admins only)
+    - `:join` - join a channel (admins only)
     - `:stop` - stop this irc bot (admins only)
     - `:log` - write something to log (admins only)
+    - `:plugins` - list available plugins
+    - `:plugin` - get information about a plugin
 - Default plugin commands:
     - `:calc` - simple calculator
     - `:convert` - currency conversion
@@ -54,11 +57,11 @@ or meant for crude, stupid jokes.
         - Display file sizes and types (e.g. PDF, ISO, ZIP, GZIP)
         - Many more sites
     - Responses to complements, greetings, and mean words from users
+- Substitution plugin
+    - Fix typos just by running `s/tpyo/typo/` like you would in Vim
 
 ### In-Progress
-- Authentication for bot administrator (in-progress)
 - Enabling and disabling plugins via commands or configuration
-- Look up plugin metadata.
 
 ### Planned
 - Google search plugin (`:google`)
