@@ -350,10 +350,11 @@ def link_info(link):
     """
     if 'http://' not in link and \
        'https://' not in link:
-        link = 'http://' + link
+        link = 'http://{}'.format(link)
 
     page_head = None
     try:
+        print('requesting: {}'.format(link))
         page_head = requests.head(link, allow_redirects=True, timeout=3)
         if page_head.status_code == 404:
             page_head = requests.get(link, allow_redirects=True, timeout=3)
@@ -404,11 +405,12 @@ def link_info(link):
 def matched_url(regex, packet: ircp.Packet, shared: dict):
     ''' Match the url regex '''
     # At the moment this only cares about the first link in a message
-    matched = regex.search(packet.text).group(0)
-    print('matched url: '.format(matched))
+    matched = regex.search(packet.text).group(0).strip()
+    print('matched url: {}'.format(matched))
     try:
-        reply = packet.reply(link_info(matched))
-        return reply
+        title = link_info(matched)
+        if title != None:
+            return packet.reply(title)
     except Exception as e:
         print('Failed to parse link: {}'.format(matched))
 
@@ -419,5 +421,7 @@ def setup_resources(config: dict, shared: dict):
 
     shared['re_response']['url_re'] = matched_url
 
+
 def setup_commands(all_commands: dict):
     pass
+

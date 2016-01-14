@@ -487,7 +487,7 @@ def handle_incoming(line, shared_data):
     if msg_packet.msg_type == 'PRIVMSG':
         # Do we need to parse mess? If so, parse it
         msg_text = msg_packet.text
-        if msg_text[0] == config['prefix'] and len(msg_text) > 1:  # If message starts with prefix
+        if len(msg_text) > 1 and msg_text[0] == config['prefix']:  # If message starts with prefix
             now = time.time()
             if (msg_packet.sender not in shared_data['cooldown_user']) or \
                 (now > shared_data['cooldown_user'][msg_packet.sender]):
