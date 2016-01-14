@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-__plugin_name__ = 'Money Converter'
+__plugin_name__ = 'conversion'
 __plugin_description__ = 'Convert between currencies'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'

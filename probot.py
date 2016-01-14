@@ -29,6 +29,7 @@ import os
 import irc_argparse
 #from collections import deque
 from importlib import import_module, reload
+from importlib.machinery import PathFinder
 import pkgutil
 import asyncore
 import asynchat
@@ -129,6 +130,8 @@ def load_builtins(shared):
     com['info'] = b.info_command
     com['commands'] = b.command_list
     com['join'] = b.join_command
+    com['plugin'] = plugin_info_command
+    com['plugins'] = plugin_info_command
     print('Loaded built-in commands')
 
     shared['help']['stop'] = 'Stop this bot and make it quit || :stop <password>'
@@ -139,6 +142,8 @@ def load_builtins(shared):
     shared['help']['log'] = 'Write information to this bot\'s log (admins only) || :log <message> || :log this is a log message'
     shared['help']['commands'] = 'List all available commands || :commands'
     shared['help']['join'] = 'Ask for this bot to join a channel || :join <channel> || :join #bot-overlords'
+    shared['help']['plugin'] = 'Get information about a plugin || :plugin <plugin> || :plugin wikipedia'
+    shared['help']['plugins'] = 'List all plugins available || :plugins'
 
     shared['cooldown']['stop'] = 5
     shared['cooldown']['help'] = 3
@@ -149,12 +154,17 @@ def load_builtins(shared):
     shared['cooldown']['commands'] = 10
     shared['cooldown']['join'] = 1
 
+    # Maybe make these admin only?
+    shared['cooldown']['plugin'] = 2
+    shared['cooldown']['plugins'] = 5
 
-def load_plugins(shared: dict):
+
+def load_plugins(shared: dict, to_load=None):
     #print(os.path.join(shared['dir'], 'plugins'))
 
     # Clear up existing plugins and commands
     plugin_list.clear()
+    disabled.clear()
     shared['commands'].clear()
     shared['help'].clear()
     shared['regexes'].clear()
@@ -164,9 +174,16 @@ def load_plugins(shared: dict):
 
     reload(plugins)
     failed_loads = []
-    disabled = []
 
-    for importer, modname, ispkg in pkgutil.iter_modules([os.path.join(shared['dir'], 'plugins')]):
+    if to_load == None:
+        to_load = []
+
+    # if no modules already enabled
+    if len(to_load) == 0:
+        for importer, modname, ispkg in pkgutil.iter_modules([os.path.join(shared['dir'], 'plugins')]):
+            to_load.append(modname)
+
+    for modname in to_load:
         print('importing {}'.format(modname))
         try:
             module = import_module('.' + modname, package='plugins')
@@ -191,10 +208,7 @@ def load_plugins(shared: dict):
         p.setup_resources(shared['conf'], shared)
         p.setup_commands(shared['commands'])
 
-    return failed_loads, disabled
-
-
-    print('{} plugins loaded!'.format(len(plugin_list)))
+    return failed_loads
 
 
 def reload_command(arg, packet, shared):
@@ -203,7 +217,7 @@ def reload_command(arg, packet, shared):
     '''
     print('Unloaded all plugins!')
     print('Reload command called')
-    fails, disabled = load_plugins(shared)
+    fails = load_plugins(shared)
     if len(fails) + len(disabled) == 0:
         return packet.reply('All {} plugins reloaded!'.format(len(plugin_list)))
 
@@ -211,7 +225,7 @@ def reload_command(arg, packet, shared):
                 packet.reply('The following were NOT loaded: '))
 
     if len(fails) > 0:
-        response += (packet.reply('Fails:  ' + ', '.join(fails)), )
+        response += (packet.reply('Fail to Load:  ' + ', '.join(fails)), )
     if len(disabled) > 0:
         response += (packet.reply('Disabled: '  + ', '.join(disabled)), )
 
@@ -219,17 +233,64 @@ def reload_command(arg, packet, shared):
 
     return response
 
+def plugin_info_command(arg, packet, shared):
+    '''
+    Does stuff to plugins
+    '''
+    comm = arg[0].lower()
+    config = shared['conf']
+    global disabled
+
+    if comm == 'plugins':
+        enabled = tuple(p.__plugin_name__ for p in plugin_list)
+
+        output = (packet.reply('Enabled plugins ({}): '.format(len(enabled))),
+                  packet.reply(', '.join(enabled)))
+        if len(disabled) > 0:
+            output += (packet.reply('Disabled plugins ({})'.format(len(disabled))),
+                       packet.reply(', '.join(disabled)))
+
+        return output
+
+    elif comm == 'plugin':
+        if len(arg) < 2:
+            return packet.reply('You need to specify a plugin to inspect!')
+        
+        name = arg[1].lower()
+
+        enabled = tuple(p.__plugin_name__ for p in plugin_list)
+        if (name not in enabled) and (name not in disabled):
+            return packet.reply('{} is not a valid plugin name'.format(name))
+
+        #is_enabled = (name in enabled)
+        is_enabled = name in enabled
+        module = None
+        if is_enabled:
+            for p in plugin_list:
+                if name == p.__plugin_name__:
+                    module = p
+                    break
+
+        output = (packet.reply('{} is {}'.format(name, (lambda x: 'ENABLED' if True else 'DISABLED')(is_enabled))),)
+        if module:
+            if '__plugin_description__' in dir(module):
+                output += (packet.reply(module.__plugin_description__),)
+            if '__plugin_author__' in dir(module):
+                output += (packet.reply('Author: {}'.format(module.__plugin_author__)),)
+            if '__plugin_version__' in dir(module):
+                output += (packet.reply('Version: {}'.format(module.__plugin_version__)),)
+            if '__plugin_type__' in dir(module):
+                output += (packet.reply('Type: {}'.format(module.__plugin_type__)),)
+
+        return output
+    else:
+        print('You dun\' goofed.')
+
 
 def load_textfile(filename):
     """Loads multiline message form a text file into a tuple"""
     with open(filename) as f:  # Pythonic
         return tuple(line.strip() for line in f)
-
-
-def write_to_log(message, logname='./data/log.txt', text_format='utf-8'):
-    """This function appends a line to the log file"""
-    with open(logname, 'a', encoding=text_format) as logfile:
-        logfile.write('[{0}] {1}\n'.format(time.strftime('%Y-%m-%d %H:%M:%S'), message))
 
 
 def json_save(filename, dump_dict):
@@ -302,7 +363,8 @@ def setup(config):
         'intro': m_config['intro'],
         'adminpass': m_config['adminpass'],
         'oxr_id': m_config['oxr_id'],
-        'disabled': dict(),
+        'plugins.enabled': dict(),
+        'plugins.disabled': dict(),
         }
 
 
@@ -329,7 +391,7 @@ def setup(config):
     }
 
     # load plugins. This *has* to happend *after* shared_data is set up
-    a, b = load_plugins(shared_data)
+    a = load_plugins(shared_data)
     print('plugins: {}'.format(plugin_list))
 
     # TODO: Keep list of last 30 packets and the channels they are from
@@ -342,7 +404,6 @@ def handle_incoming(line, shared_data):
     line - the line to parse
     shared_data - the shared_data with literally everything in it
     '''
-    print('handle_incoming: {}'.format(line))
     reply = None        # Reset reply
     msg_packet = None
 

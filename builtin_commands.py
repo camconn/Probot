@@ -18,6 +18,7 @@
 
 
 import ircpacket as ircp
+import time
 
 
 CLR_HGLT = '3'
@@ -36,6 +37,12 @@ def chunk_message(msgs, num):
     """
     for sublist in range(0, len(msgs), num):
         yield msgs[sublist:sublist + num]
+
+
+def write_to_log(message, logname='./data/log.txt', text_format='utf-8'):
+    """This function appends a line to the log file"""
+    with open(logname, 'a', encoding=text_format) as logfile:
+        logfile.write('[{0}] {1}\n'.format(time.strftime('%Y-%m-%d %H:%M:%S'), message))
 
 
 def info_command(arg, packet, shared):
