@@ -27,6 +27,11 @@ import time
 import os
 import irc_argparse
 from collections import deque
+import pkgutil
+import asynchat
+import asyncore
+from traceback import format_exc
+from types import GeneratorType
 from sys import stdout, version_info
 
 # In Python 3.4+ imp is depreciated in favor of the easier
@@ -36,38 +41,28 @@ if version_info >= (3, 4):
     from importlib import import_module, reload
 else:
     from imp import find_module, load_module
-import pkgutil
-import asynchat
-import asyncore
-from traceback import format_exc
-from types import GeneratorType
 
 import ircpacket as ircp
+import plugins
 
-#import plugins
-plugin_list = []
-disabled = []
-
+# Make sure we don't send spam when send do smilies
 from string import ascii_lowercase
+ALLOWABLE_START_CHARS = set(ascii_lowercase)
+BAD_START_CHARS = {'d', 'p', 'o'}
+for c in BAD_START_CHARS:
+    ALLOWABLE_START_CHARS.remove(c)
 
-ALLOWABLE_START_CHARS = ascii_lowercase.replace('d', '').replace('p', '').replace('o', '')
+all_plugins = set()      # All plugins as string
+plugin_list = set()      # Loaded plugins as modules
+disabled_plugins = set() # Disabled plugins (strings)
+failed_plugins = set()   # Plugins which failed to load (strings)
 
 # Color codes constants for mIRC
 CLR_HGLT = '3'
 CLR_RESET = ''
 CLR_NICK = '11'
 VERSION = '0.9'
-
-SMILIES = (':)',
-           ':d',
-           ':p',
-           ':^',
-           ':o')
-
-# Global variables (I know this is bad, but they are staying here for now)
-formatting = 'UTF-8'  # format of this file - DO NOT TOUCH
 FORMATTING = 'UTF-8'
-
 
 STOP = 0
 RESTART = 1
@@ -76,7 +71,7 @@ RESTART = 1
 def is_iterable(obj):
     ''' Figure out if an object is iterable '''
     return type(obj) == list or type(obj) == tuple or \
-            type(obj) == GeneratorType
+            type(obj) == GeneratorType or type(obj) == set
 
 class IRCClient(asynchat.async_chat):
     ''' Asyncronous IRC client that handles chat, networking IO,
@@ -163,6 +158,7 @@ class IRCClient(asynchat.async_chat):
         except Exception as e:
             print('An error broke loose!')
 
+
 def load_builtins(shared: dict):
     ''' Small set of internal commands used to maintain state.
     This *CANNOT* crash, so it's maintained internally. This
@@ -176,6 +172,8 @@ def load_builtins(shared: dict):
     com['plugin'] = plugin_info_command
     com['plugins'] = plugin_info_command
     com['auth'] = auth_command
+    com['disable'] = plugin_toggle
+    com['enable'] = plugin_toggle
 
     shared['help']['stop'] = 'Stop this bot and make it quit (admins only) || :stop'
     shared['help']['restart'] = 'Stop this bot and make it restart (admins only) || :restart'
@@ -183,6 +181,8 @@ def load_builtins(shared: dict):
     shared['help']['plugin'] = 'Get information about a plugin || :plugin <plugin> || :plugin wikipedia'
     shared['help']['plugins'] = 'List all plugins available || :plugins'
     shared['help']['auth'] = 'Authenticate yourself || :auth <password> || :auth hunter2'
+    shared['help']['enable'] = 'Enable a plugin || :enable <plugin> || :enable rekt'
+    shared['help']['disable'] = 'Disable a plugin || :disable <plugin> || :disable told'
 
     shared['cooldown']['stop'] = 5
     shared['cooldown']['restart'] = 5
@@ -190,22 +190,21 @@ def load_builtins(shared: dict):
     shared['cooldown']['plugin'] = 2
     shared['cooldown']['plugins'] = 5
     shared['cooldown']['auth'] = 1
+    shared['cooldown']['enable'] = 1
+    shared['cooldown']['disable'] = 1
 
 
-def load_plugins(shared: dict, to_load=None):
+def load_plugins(shared: dict):
     ''' (Re)Load all plugins for the bot
 
-    to_load list of plugins to load (exlude from list to disable plugins)
+    This is a bug function, look into breaking it up into smaller things
     '''
     #print(os.path.join(shared['dir'], 'plugins'))
-
-    # list.clear() is only in Python 3.4+
-    if version_info >= (3, 4):
-        plugin_list.clear()
-        disabled.clear()
-    else:
-        del plugin_list[:]
-        del disabled[:]
+    # We don't clear disabled_plugins because it's just strings that persist
+    # between `reloads and restarts
+    all_plugins.clear()
+    plugin_list.clear()
+    failed_plugins.clear()
 
     shared['commands'].clear()
     shared['help'].clear()
@@ -228,18 +227,14 @@ def load_plugins(shared: dict, to_load=None):
         pl = load_module('plugins', pf, pl_path, desc)
         #pl = load_module('plugins', fp, pathname, desc)
 
-    failed_loads = []
-
-    if to_load == None:
-        to_load = []
-
+    all_plugins.clear()
     # if no modules already enabled
-    if len(to_load) == 0:
-        for importer, modname, ispkg in pkgutil.iter_modules([os.path.join(shared['dir'], 'plugins')]):
-            to_load.append(modname)
+    for importer, modname, ispkg in pkgutil.iter_modules([os.path.join(shared['dir'], 'plugins')]):
+        all_plugins.add(modname)
 
-    for modname in to_load:
+    for modname in all_plugins:
         print('importing {}'.format(modname))
+        all_plugins.add(modname)
         try:
             module = None
 
@@ -258,28 +253,28 @@ def load_plugins(shared: dict, to_load=None):
             print('Loaded {}'.format(module))
             # Plugins without __plugin_enabled__ are never loaded.
             if '__plugin_enabled__' in dir(module):
+                plugin_list.add(module)
+
                 if module.__plugin_enabled__:
-                    plugin_list.append(module)
                     continue
+
+                disabled_plugins.add(modname)
             else:
-                print('I found a plugin call "{}" that I didn\'t enable'.format(modname))
+                print('I found a plugin called "{}" that I didn\'t load.'.format(modname))
                 raise ImportError('No __plugin_enabled__ :(')
-
-            disabled.append(modname)
-
         except ImportError as e:
             print('Couldn\'t load {}'.format(modname))
             print('Exception: {}'.format(e))
-            failed_loads.append(modname)
-
+            disabled_plugins.add(modname)
+            failed_plugins.add(modname)
 
     # TODO: Gracefully handle plugin setup fail
     for p in plugin_list:
-        print('set up {}'.format(p))
-        p.setup_resources(shared['conf'], shared)
-        p.setup_commands(shared['commands'])
-
-    return failed_loads
+        short_name = p.__name__.lstrip('plugins.')
+        if short_name not in disabled_plugins:
+            print('setting up {}'.format(p))
+            p.setup_resources(shared['conf'], shared)
+            p.setup_commands(shared['commands'])
 
 
 def reload_command(arg: tuple, packet: ircp.Packet, shared: dict):
@@ -290,17 +285,18 @@ def reload_command(arg: tuple, packet: ircp.Packet, shared: dict):
         return packet.reply('You aren\'t authenticated for that! You need to :auth')
 
     print('Reload command called')
-    fails = load_plugins(shared)
-    if len(fails) + len(disabled) == 0:
+    load_plugins(shared)
+
+    if len(failed_plugins) + len(disabled_plugins) == 0:
         return packet.reply('All {} plugins reloaded!'.format(len(plugin_list)))
 
     response = (packet.reply('{} plugins were reloaded.'.format(len(plugin_list))),
                 packet.reply('The following were NOT loaded: '))
 
-    if len(fails) > 0:
-        response += (packet.reply('Fail to Load:  ' + ', '.join(fails)), )
-    if len(disabled) > 0:
-        response += (packet.reply('Disabled: '  + ', '.join(disabled)), )
+    if len(failed_plugins) > 0:
+        response += (packet.reply('Fail to Load:  ' + ', '.join(failed_plugins)), )
+    if len(disabled_plugins) > 0:
+        response += (packet.reply('Disabled: '  + ', '.join(disabled_plugins)), )
 
     response += (packet.reply('Please check your logs for further information.'), )
 
@@ -341,37 +337,37 @@ def plugin_info_command(arg: tuple, packet: ircp.Packet, shared: dict):
 
     comm = arg[0].lower()
     config = shared['conf']
-    global disabled
+    global disabled_plugins
 
     if comm == 'plugins':
-        enabled = tuple(p.__plugin_name__ for p in plugin_list)
+        enabled = all_plugins.difference(disabled_plugins).difference(failed_plugins)
 
         output = (packet.reply('Enabled plugins ({}): '.format(len(enabled))),
                   packet.reply(', '.join(enabled)))
-        if len(disabled) > 0:
-            output += (packet.reply('Disabled plugins ({})'.format(len(disabled))),
-                       packet.reply(', '.join(disabled)))
+        if len(disabled_plugins) > 0:
+            output += (packet.reply('Disabled plugins ({})'.format(len(disabled_plugins))),
+                       packet.reply(', '.join(disabled_plugins)))
 
         return output
 
     elif comm == 'plugin':
         if len(arg) < 2:
             return packet.reply('You need to specify a plugin to inspect!')
-        
+
         name = arg[1].lower()
 
-        enabled = tuple(p.__plugin_name__ for p in plugin_list)
-        if (name not in enabled) and (name not in disabled):
+        if name not in all_plugins:
             return packet.reply('{} is not a valid plugin name'.format(name))
 
         #is_enabled = (name in enabled)
-        is_enabled = name in enabled
+        is_enabled = not (name in disabled_plugins or name in failed_plugins)
+
         module = None
-        if is_enabled:
-            for p in plugin_list:
-                if name == p.__plugin_name__:
-                    module = p
-                    break
+        full_name = 'plugins.{}'.format(name)
+        for p in plugin_list:
+            if p.__name__ == full_name:
+                module = p
+                break
 
         output = (packet.reply('{} is {}'.format(name, (lambda x: 'ENABLED' if True else 'DISABLED')(is_enabled))),)
         if module:
@@ -382,11 +378,49 @@ def plugin_info_command(arg: tuple, packet: ircp.Packet, shared: dict):
             if '__plugin_version__' in dir(module):
                 output += (packet.reply('Version: {}'.format(module.__plugin_version__)),)
             if '__plugin_type__' in dir(module):
-                output += (packet.reply('Type: {}'.format(module.__plugin_type__)),)
+                output += (packet.reply('Plugin Type: {}'.format(module.__plugin_type__)),)
 
         return output
     else:
         print('You dun\' goofed.')
+
+
+def plugin_toggle(arg: tuple, packet: ircp.Packet, shared: dict):
+    ''' Enable or disable plugins
+
+    :enable <plugin>
+    :disable <plugin>
+    '''
+    if packet.sender not in shared['auth']:
+        return packet.reply('You don\'t have permission to do that!')
+
+    if len(arg) < 2:
+        return packet.reply('You need to specify a plugin to disable')
+    if len(arg) > 2:
+        return packet.reply('Too many arguments! The command only uses 1 argument.')
+
+    command = arg[0].lower()
+    name = arg[1].lower()
+
+    if command == 'enable':
+        if not (name in disabled_plugins or name in failed_plugins):
+            return packet.reply('Plugin is already enabled. Doing nothing.')
+
+        if name in disabled_plugins:
+            disabled_plugins.remove(name)
+        if name in failed_plugins:
+            failed_plugins.remove(name)
+
+        return packet.reply('Plugin is now enabled.')
+    elif command == 'disable':
+        if name in disabled_plugins:
+            return packet.reply('Plugin is already disabled!')
+        else:
+            disabled_plugins.add(name)
+            # TODO: Reload plugins to get rid of leftovers
+            return packet.reply('Plugin is now disabled!')
+    else:
+        print('You screwed up.')
 
 
 def auth_command(arg: tuple, packet: ircp.Packet, shared: dict):
@@ -403,7 +437,7 @@ def auth_command(arg: tuple, packet: ircp.Packet, shared: dict):
         if packet.sender in shared['auth']:
             return packet.reply('You are already logged in!')
         else:
-            shared['auth'].append(packet.sender)
+            shared['auth'].add(packet.sender)
             print('{} successfully authenticated.'.format(packet.sender))
             return packet.reply('Authentication success!')
     else:
@@ -498,7 +532,7 @@ def setup(config):
     shared_data = {
         'conf': config,
         'info': info_str,
-        'chan': [],
+        'chan': set(),
         'dir': os.getcwd(),
         'commands': commands,
         'help': dict(),
@@ -506,7 +540,7 @@ def setup(config):
         're_response': dict(),
         'cooldown_user': dict(),
         'cooldown': dict(),
-        'auth': list(),
+        'auth': set(),
         'recent_messages': deque(maxlen=30)
     }
 
@@ -589,7 +623,7 @@ def handle_incoming(line, shared_data):
         print('{} changed nick to {}'.format(msg_packet.sender, msg_packet.nick_to))
         if msg_packet.sender in shared['auth']:
             shared['auth'].remove(msg_packet.sender)
-            shared['auth'].append(msg_packet.nick_to)
+            shared['auth'].add(msg_packet.nick_to)
             print('moved {} to {} on auth list'.format(msg_packet.sender, msg_packet.nick_to))
 
     elif msg_packet.msg_type in ('PART', 'QUIT'):
@@ -599,7 +633,7 @@ def handle_incoming(line, shared_data):
 
     elif msg_packet.msg_type == 'JOIN':
         if msg_packet.sender == shared['conf']['bot_nick']:
-            shared['chan'].append(msg_packet.target)
+            shared['chan'].add(msg_packet.target)
             reply = ircp.make_message(shared['conf']['intro'], msg_packet.target)
     else:
         pass

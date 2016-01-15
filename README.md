@@ -24,7 +24,8 @@ Here's what Probot has to offer to you:
 lightweight, and doesn't require much resources. On a default install with everything
 enabled, Probot uses less than 30 MB of memory.  
 **Reliable** - Probot has over 1500 hours of continual usage (without crashing) under
-it's belt. Moreover, in the even something *does* go wrong, Probot can automatically
+it's belt. Moreover, in the even something *does* go wrong, Probot can automatically recover
+from faulty plugins or internall errors.  
 **Hack 'N Slash** - Probot's plugin system is designed to easily used and allows
 you to quickly be up and running with custom plugins.  
 **Reload and load plugins without restarting** - Probot is able to reload, and change
@@ -66,6 +67,8 @@ In case that doesn't convince you, here the laundry list of what Probot's got:
     - `:channels` - list channels currenly in (admins only)
     - `:join` - join a channel (admins only)
     - `:part` - leave a channel (admins only)
+    - `:enable` - enables a plugin
+    - `:disable` - disables a plugin
 - Default plugin commands:
     - `:calc` - simple calculator
     - `:convert` - currency conversion
@@ -88,7 +91,8 @@ In case that doesn't convince you, here the laundry list of what Probot's got:
     - Fix typos just by typing `s/tpyo/typo/` like you would in Vim
 
 ### In-Progress
-- Enabling and disabling plugins via commands or configuration
+- General Cleanup of Global Variables
+- Syntactical Sugar for Plugins
 
 ### Planned
 - Google search plugin (`:google`)
