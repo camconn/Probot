@@ -17,8 +17,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__plugin_name__ = 'partyboat'
-__plugin_alias__ = 'pb'
 __plugin_description__ = 'Start the party on the seas!'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
@@ -27,7 +25,6 @@ __plugin_enabled__ = True
 
 
 from os import path
-#import argparse
 import logging
 from itertools import zip_longest
 import ircpacket as ircp
@@ -43,14 +40,14 @@ def command(arg, packet, shared):
     print('The party just started')
 
     print('got {}'.format(arg))
-    
 
     # Discard unwanted whitespace between words
     #arg = ' '.join(arg.split())
-    words = arg[1:]
+    words = list(arg[1:])
+    print('words: {}'.format(words))
 
     if len(words) == 0:
-        words = 'hail hydra'.split(' ')
+        words = list('party boat!'.split(' '))
     if len(words) == 1:
         if len(words[0]) > 5:
             words.append(words[0][5:])
@@ -82,9 +79,9 @@ def command(arg, packet, shared):
             if num == 0:  # the first line of the boat thing has 3 arguments
                 name = ''
 
-                # pad name to at least 6 chars
-                if len(packet.sender) <= 6:
-                    name = ' '*(6 - len(packet.sender)) + packet.sender
+                # pad name to at least 11 chars
+                if len(packet.sender) <= 11:
+                    name = packet.sender + ' '*(11 - len(packet.sender)) + '1,11|'
                 else:
                     name = packet.sender
 
@@ -93,13 +90,8 @@ def command(arg, packet, shared):
                 boat_line = line.format(first_letter, second_letter)
         else:  # on the sixth line, there is no formatting
             boat_line = line
-
-        # Below is the LAME old formatting
-        #if num == 0:
-        #    boat_line += ' {1}{0}{2} started the partyboat!'.format(packet.sender, CLR_NICK, CLR_RESET)
-
         message.append(ircp.make_message(boat_line, packet.target))
-    #print(line for line in message)
+
     return message
 
 
@@ -126,6 +118,6 @@ def setup_commands(all_parsers):
     Plugin callback to set up commands associated with this plugin.
     '''
 
-    all_parsers[__plugin_name__] = command
-    all_parsers[__plugin_alias__] = command
+    all_parsers['partyboat'] = command
+    all_parsers['pb'] = command
 

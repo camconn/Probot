@@ -17,7 +17,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__plugin_name__ = 'substitution'
 __plugin_description__ = 'Simple substitution using s/old/new/'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
@@ -27,10 +26,9 @@ __plugin_enabled__ = True
 
 import re
 import ircpacket as ircp
+from irctools import CLR_RESET, CLR_ITLCS
 
 REGEX_SUB ='^s/.*/.*(\/(g?))?$'
-ITALICS = chr(int("0x1d", 0))
-CLR_RESET = ''
 
 
 def sub_replace(regex, packet: ircp.Packet, shared: dict) -> str:
@@ -68,7 +66,7 @@ def sub_replace(regex, packet: ircp.Packet, shared: dict) -> str:
     print('replacing "{}" with "{}"'.format(old, new))
     print('original: "{}"'.format(output))
     # patch in italics
-    new = ITALICS + new + CLR_RESET
+    new = CLR_ITLCS + new + CLR_RESET
 
 
     if global_flag:

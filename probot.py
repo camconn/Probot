@@ -44,6 +44,7 @@ else:
 
 import ircpacket as ircp
 import plugins
+from irctools import CLR_HGLT, CLR_NICK, CLR_RESET, require_auth
 
 # Make sure we don't send spam when send do smilies
 from string import ascii_lowercase
@@ -277,13 +278,11 @@ def load_plugins(shared: dict):
             p.setup_commands(shared['commands'])
 
 
+@require_auth
 def reload_command(arg: tuple, packet: ircp.Packet, shared: dict):
     '''
     Reloads all plugins as well as their data files
     '''
-    if packet.sender not in shared['auth']:
-        return packet.reply('You aren\'t authenticated for that! You need to :auth')
-
     print('Reload command called')
     load_plugins(shared)
 
@@ -303,6 +302,7 @@ def reload_command(arg: tuple, packet: ircp.Packet, shared: dict):
     return response
 
 
+@require_auth
 def stop_command(arg: list, packet: ircp.Packet, shared: dict):
     '''
     Stops this bot
@@ -310,31 +310,27 @@ def stop_command(arg: list, packet: ircp.Packet, shared: dict):
     import logging
     from plugins.internal import write_to_log
 
-    print('Stop command called')
-    if packet.sender in shared['auth']:
-        if arg[0].lower() == 'stop':
-            logging.info('Stop command received; stopping bot.')
-            return STOP
-        elif arg[0].lower() == 'restart':
-            logging.info('Restart command received; stopping bot.')
-            return RESTART
-        else:
-            print('wtf just happened here?')
+    if arg[0].lower() == 'stop':
+        logging.info('Stop command received; stopping bot.')
+        return STOP
+    elif arg[0].lower() == 'restart':
+        logging.info('Restart command received; stopping bot.')
+        return RESTART
     else:
-        write_to_log('User {0} tried to run `stop` command.'.format(packet.sender))
-        return_msg = ('STOP TRYING TO BREAK THIS BOT, ASSHOLE. THIS INCIDENT '
-                      'WILL BE REPORTED TO SANTA CLAUS, ANONYMOOSE, THE '
-                      'HACKER 4CHAN, TEH FBI, THE CIA, AND THE NSA!!!111!!one!1')
-        return ircp.make_notice(return_msg, packet.sender)
+        print('wtf just happened here?')
+
+    #write_to_log('User {0} tried to run `stop` command.'.format(packet.sender))
+    #return_msg = ('STOP TRYING TO BREAK THIS BOT, ASSHOLE. THIS INCIDENT '
+    #              'WILL BE REPORTED TO SANTA CLAUS, ANONYMOOSE, THE '
+    #              'HACKER 4CHAN, TEH FBI, THE CIA, AND THE NSA!!!111!!one!1')
+    #return ircp.make_notice(return_msg, packet.sender)
 
 
+@require_auth
 def plugin_info_command(arg: tuple, packet: ircp.Packet, shared: dict):
     '''
     Does stuff to plugins
     '''
-    if packet.sender not in shared['auth']:
-        return packet.reply('You must be admin to do this. Try doing :auth')
-
     comm = arg[0].lower()
     config = shared['conf']
     global disabled_plugins
@@ -385,15 +381,13 @@ def plugin_info_command(arg: tuple, packet: ircp.Packet, shared: dict):
         print('You dun\' goofed.')
 
 
+@require_auth
 def plugin_toggle(arg: tuple, packet: ircp.Packet, shared: dict):
     ''' Enable or disable plugins
 
     :enable <plugin>
     :disable <plugin>
     '''
-    if packet.sender not in shared['auth']:
-        return packet.reply('You don\'t have permission to do that!')
-
     if len(arg) < 2:
         return packet.reply('You need to specify a plugin to disable')
     if len(arg) > 2:
@@ -423,6 +417,7 @@ def plugin_toggle(arg: tuple, packet: ircp.Packet, shared: dict):
         print('You screwed up.')
 
 
+# LOL, don't @require_auth here!
 def auth_command(arg: tuple, packet: ircp.Packet, shared: dict):
     ''' Authenticate yourself
 

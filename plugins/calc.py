@@ -17,7 +17,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__plugin_name__ = 'calculator'
 __plugin_description__ = 'Simple command-line calculator'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'

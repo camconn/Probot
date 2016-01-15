@@ -17,7 +17,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__plugin_name__ = 'internal'
 __plugin_description__ = 'Internal (and non-essential) probot commands'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
@@ -25,12 +24,9 @@ __plugin_type__ = 'command'
 __plugin_enabled__ = True
 
 
+from irctools import CLR_HGLT, CLR_RESET, CLR_NICK, require_auth
 import ircpacket as ircp
 import time
-
-CLR_HGLT = '3'
-CLR_RESET = ''
-CLR_NICK = '11'
 
 
 def chunk_message(msgs, num):
@@ -74,21 +70,18 @@ def help_command(arg, packet, shared):
         return ircp.make_notice('Help is not available (yet) for `{}`'.format(arg[1]), packet.sender)
 
 
+@require_auth
 def say_command(arg: tuple, packet: ircp.Packet, shared: dict):
     """
     Echoes text than an admin tells the bot to
     """
-    if packet.sender in shared['auth']:
-        if len(arg) < 2:
-            return packet.reply('You must specify a channel for me to say that in')
-        else:
-            target = arg[1]
-            message = packet.text.split(target)[1].lstrip()
-            return (packet.reply('Message sent to {}'.format(target)),
-                    ircp.make_message(message, target))
+    if len(arg) < 2:
+        return packet.reply('You must specify a channel for me to say that in')
     else:
-        h8_string = 'u wot m8? pls stop trying to abuse this bot.'
-        return packet.reply(h8_string)
+        target = arg[1]
+        message = packet.text.split(target)[1].lstrip()
+        return (packet.reply('Message sent to {}'.format(target)),
+                ircp.make_message(message, target))
 
 
 def command_list(arg, packet, shared):
@@ -134,6 +127,7 @@ def test_command(arg, packet, shared):
         return ircp.make_notice(test_str, packet.sender)
 
 
+@require_auth
 def log_append_command(arg, packet, shared):
     """ Appends something to text logs
 
@@ -142,40 +136,37 @@ def log_append_command(arg, packet, shared):
     User syntax is `arg <text>` where `<text>` is a message that will be added
     to the log.
     """
-    if packet.sender == shared['conf']['admin']:
-        write_to_log('{0} LOG-APPEND: {1}'.format(packet.sender, arg))
-        return ircp.make_message('Log written', packet.sender)
-    else:
-        write_to_log('{0} failed to write to log: {1}'.format(packet.sender, arg))
-        alert_string = ('You do not have sufficient permissions to do this. '
-                        'This incident shall be reported')
-        return ircp.make_message(alert_string, packet.sender)
+    if len(arg) < 2:
+        return packet.reply('You need to put something down for me to add!')
+
+    text = packet.text.split(':log')[1].lstrip()
+    write_to_log('{0} LOG-APPEND: {1}'.format(packet.sender, arg))
+    return ircp.make_message('Log written', packet.sender)
 
 
+@require_auth
 def join_command(arg: tuple, packet: ircp.Packet, shared: dict):
     ''' Make the bot join a channel
 
         :join <channel> [channel [channel ...]]
     '''
     output = None
-    if packet.sender in shared['auth']:
-        if len(arg) < 2:
-            output = packet.reply('You need to specify a channel for me to join.')
-        else:
-            output = []
-            for c in arg[1:]:
-                if c.find('#') == 0:
-                    output.append(ircp.join_chan(c))
-                else:
-                    output.append(packet.reply('{} is not a valid channel'.format(c)))
-
-            output.append(packet.reply('Joined!'))
+    if len(arg) < 2:
+        output = packet.reply('You need to specify a channel for me to join.')
     else:
-        output = packet.reply('You do not have permission to do that. You need to :auth')
+        output = []
+        for c in arg[1:]:
+            if c.find('#') == 0:
+                output.append(ircp.join_chan(c))
+            else:
+                output.append(packet.reply('{} is not a valid channel'.format(c)))
+
+        output.append(packet.reply('Joined!'))
 
     return output
 
 
+@require_auth
 def part_command(arg: tuple, packet: ircp.Packet, shared: dict):
     ''' Make the bot part a channel
 
@@ -202,9 +193,9 @@ def part_command(arg: tuple, packet: ircp.Packet, shared: dict):
     return output
 
 
+@require_auth
 def list_channels(arg: tuple, packet: ircp.Packet, shared: dict):
-    ''' List channels that we are currently in
-    '''
+    ''' List channels that this bot is currently in '''
     output = None
     if packet.sender in shared['auth']:
         output = []
@@ -216,7 +207,6 @@ def list_channels(arg: tuple, packet: ircp.Packet, shared: dict):
         output = packet.reply('You do not have permission to do that. You need to :auth')
 
     return output
-
 
 
 def setup_resources(config: dict, shared: dict):

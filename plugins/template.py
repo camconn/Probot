@@ -36,7 +36,6 @@
 #               JUST HURTING YOURSELF!)
 #     `both`  - This plugin uses both regexes as well as commands.
 
-__plugin_name__ = 'template'
 __plugin_description__ = 'Template example plugin'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
@@ -44,14 +43,11 @@ __plugin_type__ = 'command'
 __plugin_enabled__ = False
 
 
-# mIRC color codes that come in handy
-CLR_HGLT = '3'
-CLR_RESET = ''
-CLR_NICK = '11'
-
 from os import path
 import logging
 import ircpacket as ircp
+# IRC color codes that come in handy
+from irctools import CLR_NICK, CLR_HGLT, CLR_RESET, CLR_ITLCS
 
 
 def hello_world(arg: tuple, packet: ircp.Packet, shared: dict):

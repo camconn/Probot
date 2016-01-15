@@ -17,7 +17,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__plugin_name__ = 'rekt'
 __plugin_description__ = 'Get rekt'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
@@ -26,15 +25,11 @@ __plugin_enabled__ = True
 
 # This is a direct translation of plugins/told.py
 
-CLR_HGLT = '3'
-CLR_RESET = ''
-CLR_NICK = '11'
-
 from os import path
 from random import sample
-#import argparse
 import logging
 import ircpacket as ircp
+from irctools import CLR_HGLT, CLR_RESET, CLR_NICK
 
 
 def rekt_command(arg, packet, shared, is_rekt=True):

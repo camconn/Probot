@@ -17,16 +17,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__plugin_name__ = 'linkinfo'
 __plugin_description__ = 'Print information about links'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
 __plugin_type__ = 'regex'
 __plugin_enabled__ = True
 
-# GPLv3
-# yada yada yada
-# Made by lt
 
 import requests
 from bs4 import BeautifulSoup
@@ -81,8 +77,8 @@ WEBSITES = {'www.youtube.com': '1,0You0,4Tube',
             'mega.co.nz': '0,4MEGA',
             'docs.python.org': '8,2PyDoc',
             'torrentfreak.com': '0,13TF',
-            #'pastebin.com': '0,2PASTEBIN',
-            'pastebin.com': '9>using pastebin unironically',  # le pastebin meme
+            'pastebin.com': '0,2PASTEBIN',
+            #'pastebin.com': '9>using pastebin unironically',  # le pastebin meme
             'p.hydra.ws': '1,4HP',
             'paste.hydra.ws': '1,4HP',
             'imgur.com': '9,1● 0imgur',
@@ -193,53 +189,6 @@ def _get_page_title(link):
     return title
 
 
-#def _get_page_title(link):
-#    """
-#    Get the title of an HTML page
-#    """
-#    title_re = re.compile('\<title\>.*\<\/title\>', re.IGNORECASE)
-#    title_tag_re = re.compile('\<\/?title\>', re.IGNORECASE)
-#
-#    try:
-#        #print('fetching {}'.format(link))
-#        r = requests.get(link, headers=REQUEST_HEADERS, allow_redirects=True, timeout=5, stream=True)
-#
-#        if r.status_code != requests.codes.ok:
-#            return None
-#        if not 'text' in r.headers['Content-Type']:
-#            return None
-#
-#        content_escaped = r.raw.read(4096+1, decode_content=True)
-#        #print('finding title')
-#        h = html.parser.HTMLParser()
-#        escaped_content = h.unescape(str(content_escaped))
-#        content = re.sub('\s+', ' ', escaped_content)
-#        match = title_re.search(content)
-#        #print('is it a match?')
-#        #print(match)
-#        if match != None:
-#            title_tagged = match.group()
-#            #print(title_tagged)
-#            title = title_tag_re.sub('', title_tagged)
-#            title = title_tag_re.sub('', title)
-#            title = title.replace('\\n', '')
-#            title = title.strip()
-#
-#            if len(title) > 100:
-#                return '{}...'.format(title[:99])
-#
-#            #print('found one {}'.format(title))
-#            return title.strip()
-#        else:
-#            #print('found notitle')
-#            return None
-#    except requests.exceptions.ReadTimeout as e:
-#        #print('Timed out m8 :(')
-#        return None
-#    except requests.exceptions.Timeout as e:
-#        #print('Timed out m8 :(')
-#        return None
-
 def _format_page_type(page_type):
     """
     Format the file type of a page for IRC output
@@ -296,20 +245,20 @@ def _fmt_special_website(page):
             return title
     elif domain == 'pastebin.com':
         return WEBSITES[domain]
-        #ending = ' - Pastebin.com'
-        #if ending in title:
-        #    # Get number of lines in Paste:
-        #    raw_paste = page.replace('pastebin.com/', 'pastebin.com/raw.php?i=')
-        #    paste_text = requests.get(raw_paste, timeout=3).text
-        #    lines = 1
-        #    for char in paste_text:
-        #        if char == '\n':
-        #            lines += 1
+        ending = ' - Pastebin.com'
+        if ending in title:
+            # Get number of lines in Paste:
+            raw_paste = page.replace('pastebin.com/', 'pastebin.com/raw.php?i=')
+            paste_text = requests.get(raw_paste, timeout=3).text
+            lines = 1
+            for char in paste_text:
+                if char == '\n':
+                    lines += 1
 
-        #    title = title.replace(ending, '')
-        #    return '{0}{3} - {1} [{2} lines]'.format(WEBSITES[domain], title, (lines), RESET)
-        #else:
-        #    return title
+            title = title.replace(ending, '')
+            return '{0}{3} - {1} [{2} lines]'.format(WEBSITES[domain], title, (lines), RESET)
+        else:
+            return title
     elif domain == 'paste.hydra.ws' or domain == 'p.hydra.ws':
         if '/api/file/' in page or '/p/' in page:
             key = page.split('/')[-1]
@@ -324,7 +273,7 @@ def _fmt_special_website(page):
                 fmt_str = '{0}{4} [{1}] - {2} [Size: {3}]'
 
                 return fmt_str.format(WEBSITES[domain], ftype, title, fsize, RESET)
-                
+
         else:
             return title
     elif domain == 'imgur.com':
@@ -371,7 +320,7 @@ def link_info(link):
         content_type = page_head.headers['content-type']
     except:  # If response header is malformed
         return None
-    
+
     # Check if webpage is a website at all
     if page_head.status_code >= 400:
         #return '[URL] Response: {}'.format(page_head.status_code)

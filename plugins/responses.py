@@ -17,7 +17,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-__plugin_name__ = 'responses'
 __plugin_description__ = 'Respond to messages from the users.'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
@@ -27,11 +26,7 @@ __plugin_enabled__ = True
 
 import re
 import ircpacket as ircp
-
-
-CLR_HGLT = '3'
-CLR_RESET = ''
-CLR_NICK = '11'
+from irctools import CLR_HGLT, CLR_RESET, CLR_NICK
 
 
 def respond_greeting(regex, packet: ircp.Packet, shared: dict) -> str:
