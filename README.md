@@ -19,7 +19,28 @@ Features
 A quick list of features of Probot. Probot has many features, most of them useless,
 or meant for crude, stupid jokes.
 
-### Completed
+Here's what Probot has to offer to you:  
+**Lightweight and Quick** - Despite relying on a Python interpreter, Probot is
+lightweight, and doesn't require much resources. On a default install with everything
+enabled, Probot uses less than 30 MB of memory.  
+**Reliable** - Probot has over 1500 hours of continual usage (without crashing) under
+it's belt. Moreover, in the even something *does* go wrong, Probot can automatically
+**Hack 'N Slash** - Probot's plugin system is designed to easily used and allows
+you to quickly be up and running with custom plugins.  
+**Reload and load plugins without restarting** - Probot is able to reload, and change
+existing plugins on the fly. This allows you to install a plugin and immediately get going,
+without spamming your user's chat.  
+**Programmable Regular Expressions** - With Probot, you can make regular expressions trigger
+behavior with plugins. For example, you could make a plugin that detects when users say
+*Linux*, and kindly remind them that they're actually referring to *GNU/Linux* (mumble,
+mumble RMS).  
+**Configurable Command Prefixes** - If you'd like to use Probot and have commands like `!this`
+or `.this`, then you can easily change the command prefix in the configuration.
+recover from and disable buggy plugins to ensure maximum uptime.
+
+In case that doesn't convince you, here the laundry list of what Probot's got:
+
+### Laundry List
 - Asynchronous for snappy performance
 - Multiple channel support
 - Easily to install plugins to add commands and functionality.
@@ -49,6 +70,8 @@ or meant for crude, stupid jokes.
     - `:calc` - simple calculator
     - `:convert` - currency conversion
     - `:currencies` - list available currencies to convert between
+    - `:fortune` - just like the \*nix command! (`fortune` must be installed on system)
+        - `:cowsay` - Get a fortune via cowsay (`cowsay` must be installed)
     - `:[not]told` - get #told
     - `:[not]rekt` - get #rekt
     - `:partyboat` - start the party boat
@@ -62,7 +85,7 @@ or meant for crude, stupid jokes.
         - Many more sites
     - Responses to complements, greetings, and mean words from users
 - Substitution plugin
-    - Fix typos just by running `s/tpyo/typo/` like you would in Vim
+    - Fix typos just by typing `s/tpyo/typo/` like you would in Vim
 
 ### In-Progress
 - Enabling and disabling plugins via commands or configuration

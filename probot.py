@@ -43,7 +43,7 @@ disabled = []
 
 from string import ascii_lowercase
 
-ALLOWABLE_START_CHARS = ascii_lowercase.replace('d', '').replace('p', '')
+ALLOWABLE_START_CHARS = ascii_lowercase.replace('d', '').replace('p', '').replace('o', '')
 
 # Color codes constants for mIRC
 CLR_HGLT = '3'
@@ -54,7 +54,8 @@ VERSION = '0.9'
 SMILIES = (':)',
            ':d',
            ':p',
-           ':^')
+           ':^',
+           ':o')
 
 # Global variables (I know this is bad, but they are staying here for now)
 formatting = 'UTF-8'  # format of this file - DO NOT TOUCH
@@ -267,6 +268,8 @@ def stop_command(arg: list, packet: ircp.Packet, shared: dict):
     Stops this bot
     '''
     import logging
+    from plugins.internal import write_to_log
+
     print('Stop command called')
     if packet.sender in shared['auth']:
         if arg[0].lower() == 'stop':
