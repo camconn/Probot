@@ -27,17 +27,24 @@ import time
 import os
 import irc_argparse
 from collections import deque
-from importlib import import_module, reload
+from sys import stdout, version_info
+
+# In Python 3.4+ imp is depreciated in favor of the easier
+# `importlib`. This block detects if importlib is available,
+# and falls back to `imp` when not available.
+if version_info >= (3, 4):
+    from importlib import import_module, reload
+else:
+    from imp import find_module, load_module
 import pkgutil
 import asynchat
 import asyncore
 from traceback import format_exc
-from sys import stdout
 from types import GeneratorType
 
 import ircpacket as ircp
 
-import plugins
+#import plugins
 plugin_list = []
 disabled = []
 
@@ -185,13 +192,21 @@ def load_builtins(shared: dict):
     shared['cooldown']['auth'] = 1
 
 
-
 def load_plugins(shared: dict, to_load=None):
+    ''' (Re)Load all plugins for the bot
+
+    to_load list of plugins to load (exlude from list to disable plugins)
+    '''
     #print(os.path.join(shared['dir'], 'plugins'))
 
-    # Clear up existing plugins and commands
-    plugin_list.clear()
-    disabled.clear()
+    # list.clear() is only in Python 3.4+
+    if version_info >= (3, 4):
+        plugin_list.clear()
+        disabled.clear()
+    else:
+        del plugin_list[:]
+        del disabled[:]
+
     shared['commands'].clear()
     shared['help'].clear()
     shared['regexes'].clear()
@@ -199,7 +214,20 @@ def load_plugins(shared: dict, to_load=None):
 
     load_builtins(shared)
 
-    reload(plugins)
+    desc = ('.py', 'r', 1)
+
+    if version_info >= (3, 4):
+        # Python 3.4+
+        reload(plugins)
+    else:
+        # Python 3.2+
+        #>>> plugs = imp.load_module('plugins', pf, '{}/plugins/__init__.py'.format(os.getcwd()), ('.py', 'r', 1))
+        pl_path = '{}/plugins/__init__.py'.format(os.getcwd())
+        print('looking in {}'.format(pl_path))
+        pf = open(pl_path, 'r')
+        pl = load_module('plugins', pf, pl_path, desc)
+        #pl = load_module('plugins', fp, pathname, desc)
+
     failed_loads = []
 
     if to_load == None:
@@ -213,17 +241,33 @@ def load_plugins(shared: dict, to_load=None):
     for modname in to_load:
         print('importing {}'.format(modname))
         try:
-            module = import_module('.' + modname, package='plugins')
-            reload(module)
+            module = None
+
+            if version_info >= (3, 4):
+                # Python 3.4+
+                module = import_module('.' + modname, package='plugins')
+                reload(module)
+            else:
+                # Python 3.2 - 3.3
+                pl_path = '{}/plugins/{}.py'.format(os.getcwd(), modname)
+                pl_name = 'plugins.{}'.format(modname)
+                print('looking in {}'.format(pl_path))
+                pf = open(pl_path, 'r')
+                module = load_module(pl_name, pf, pl_path, desc)
+
             print('Loaded {}'.format(module))
+            # Plugins without __plugin_enabled__ are never loaded.
             if '__plugin_enabled__' in dir(module):
                 if module.__plugin_enabled__:
                     plugin_list.append(module)
                     continue
+            else:
+                print('I found a plugin call "{}" that I didn\'t enable'.format(modname))
+                raise ImportError('No __plugin_enabled__ :(')
 
             disabled.append(modname)
 
-        except Exception as e:
+        except ImportError as e:
             print('Couldn\'t load {}'.format(modname))
             print('Exception: {}'.format(e))
             failed_loads.append(modname)
