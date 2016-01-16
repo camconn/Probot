@@ -31,13 +31,13 @@ from irctools import CLR_RESET, CLR_ITLCS
 REGEX_SUB ='^s/.*/.*(\/(g?))?$'
 
 
-def sub_replace(regex, packet: ircp.Packet, shared: dict) -> str:
+def sub_replace(match, packet: ircp.Packet, shared: dict) -> str:
     """
     Naive substitution regular expression on previous message.
     """
     global_flag = False
 
-    parts = packet.text.split('/')
+    parts = match.group(0).split('/')
     old, new = None, None
     
     old = parts[1]

@@ -589,9 +589,10 @@ def handle_incoming(line, shared_data):
         else:
             for re_name in shared_data['regexes']:
                 regex = shared_data['regexes'][re_name]
-                if regex.match(msg_packet.text):
-                    print('matched {}'.format(re_name))
-                    reply = shared_data['re_response'][re_name](regex, msg_packet, shared_data)
+                match = regex.search(msg_packet.text)
+                if match != None:
+                    print('matched to regex "{}"'.format(re_name))
+                    reply = shared_data['re_response'][re_name](match, msg_packet, shared_data)
                     break
     #elif (not shared_data['conf']['logged_in']) and msg_packet.msg_type == 'NUMERIC':
     #    if msg_packet.numeric == ircp.Packet.numerics['RPL_ENDOFMOTD']:  # When first logging in

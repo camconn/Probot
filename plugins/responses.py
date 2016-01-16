@@ -29,31 +29,32 @@ import ircpacket as ircp
 from irctools import CLR_HGLT, CLR_RESET, CLR_NICK
 
 
-def respond_greeting(regex, packet: ircp.Packet, shared: dict) -> str:
+def respond_greeting(matched, packet: ircp.Packet, shared: dict) -> str:
     ''' Respond to a nice greeting '''
     return packet.reply('Hey there, {1}{0}{2}!'.format(packet.sender, CLR_NICK, CLR_RESET))
 
 
-def respond_good(regex, packet: ircp.Packet, shared: dict) -> str:
+def respond_good(matched, packet: ircp.Packet, shared: dict) -> str:
     ''' Respond to a good message '''
     return packet.reply('Thanks, {1}{0}{2}!'.format(packet.sender, CLR_NICK, CLR_RESET))
 
 
-def respond_bad(regex, packet: ircp.Packet, shared: dict) -> str:
+def respond_bad(matched, packet: ircp.Packet, shared: dict) -> str:
     ''' Respond to an ugly, mean message '''
     return packet.reply('Fuck you too, {1}{0}{2}!'.format(packet.sender, CLR_NICK, CLR_RESET))
 
 
-def respond_help(regex, packet: ircp.Packet, shared: dict) -> str:
+def respond_help(matched, packet: ircp.Packet, shared: dict) -> str:
     ''' Respond to general help regex '''
     return (ircp.make_notice('For a list of my commands, type {0}:commands{1}'.format(CLR_HGLT,
                                                                         CLR_RESET), packet.sender),
             ircp.make_notice('For help with a particular command, '  \
                          'type {0}:help commandname{1}'.format(CLR_HGLT, CLR_RESET), packet.sender))
 
-def setup_resources(config: dict, shared: dict):
 
+def setup_resources(config: dict, shared: dict):
     nick = config['bot_nick']
+
     # Respond to friendly greetings
     greeting_re = re.compile('.*(hi|hello|howdy|greetings|salutations|salve|hola|hey|ahoy)\s(there)?.{{0,3}}{0}'.format(nick),
                              re.IGNORECASE)

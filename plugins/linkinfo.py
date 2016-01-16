@@ -351,10 +351,10 @@ def link_info(link):
         return '{0} Size: {1}'.format(fmt_type, content_size)
 
 
-def matched_url(regex, packet: ircp.Packet, shared: dict):
+def matched_url(match, packet: ircp.Packet, shared: dict):
     ''' Match the url regex '''
     # At the moment this only cares about the first link in a message
-    matched = regex.search(packet.text).group(0).strip()
+    matched = match.group(0)
     print('matched url: {}'.format(matched))
     try:
         title = link_info(matched)
