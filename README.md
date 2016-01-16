@@ -19,7 +19,7 @@ automatically recover from faulty plugins or internal errors.
 **Do No Spam** - Probot doesn't ~~spam~~ send messages to public chat unless
 necessary to avoid being annoying.
 
-Here's what Probot's got for admins and devs:
+Here's what Probot's got for admins and devs:  
 **Hack 'N Slash** - Probot's plugin system is designed to be easy to use by handling
 hard work for you. It has been thoughtfully designed to be Pythonic and simple
 to use.  
