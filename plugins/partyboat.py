@@ -28,18 +28,19 @@ from os import path
 import logging
 from itertools import zip_longest
 import ircpacket as ircp
+from irctools import require_public
 
 
 DEFAULT_MSG = 'HAIL HYDRA'
 
 
-def command(arg, packet, shared):
+@require_public
+def command(arg: tuple, packet: ircp.Packet, shared: dict):
     """
     Prints out a party boat to the chat
     """
-    print('The party just started')
-
-    print('got {}'.format(arg))
+    #print('The party just started')
+    #print('got {}'.format(arg))
 
     # Discard unwanted whitespace between words
     #arg = ' '.join(arg.split())
@@ -56,10 +57,6 @@ def command(arg, packet, shared):
 
     # CAPSLOCK IS CRUISE CONTROL FOR COOL
     words = [l.upper() for l in words]
-
-    if packet.target.lower() not in shared['chan']:
-        error = 'Sorry. This command is for public-chat only'
-        return ircp.make_notice(error, packet.sender)
 
     # [:5] is used to keep the argument length to five characters
     # The string '123456' is used to make sure that the zip pairs is at least 5 tuples long

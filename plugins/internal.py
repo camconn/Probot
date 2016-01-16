@@ -28,7 +28,6 @@ from irctools import CLR_HGLT, CLR_RESET, CLR_NICK, require_auth
 import ircpacket as ircp
 import time
 
-
 def chunk_message(msgs, num):
     """
     Chunk a iterator into num-unit chunks and return them for easy transmittal
@@ -53,21 +52,21 @@ def info_command(arg, packet, shared):
     Displays information about this bot
     """
     print('Info command called')
-    return ircp.make_notice(shared['info'], packet.sender)
+    return packet.notice(shared['info'])
 
 
 def help_command(arg, packet, shared):
     print('Help command called')
 
     if len(arg) < 2:
-        return ircp.make_notice('Usage - `:help <command>` || Example - :help :told', packet.sender)
+        return packet.notice('Usage - `:help <command>` || Example - :help :told')
 
     c = arg[1].lower().replace(':', '')
 
     if c in shared['help']:
-        return ircp.make_notice(':{} - {}'.format(c, shared['help'][c]), packet.sender)
+        return packet.notice('{2}:{0}{3} - {1}'.format(c, shared['help'][c], CLR_HGLT, CLR_RESET))
     else:
-        return ircp.make_notice('Help is not available (yet) for `{}`'.format(arg[1]), packet.sender)
+        return packet.notice('Help is not available (yet) for {1}{0}{2}.'.format(arg[1], CLR_HGLT, CLR_RESET))
 
 
 @require_auth
@@ -75,23 +74,23 @@ def say_command(arg: tuple, packet: ircp.Packet, shared: dict):
     """
     Echoes text than an admin tells the bot to
     """
-    if len(arg) < 2:
-        return packet.reply('You must specify a channel for me to say that in')
+    if len(arg) < 3:
+        return packet.notice('Usage - {}:say <channel> <message>'.format(CLR_HGLT))
     else:
         target = arg[1]
         message = packet.text.split(target)[1].lstrip()
-        return (packet.reply('Message sent to {}'.format(target)),
+        return (packet.notice('Message sent to {}'.format(target)),
                 ircp.make_message(message, target))
 
 
-def command_list(arg, packet, shared):
+def command_list(arg: tuple, packet: ircp.Packet, shared: dict):
     '''
     Lists all commands
     '''
     print('listing commands!')
     all_commands = shared['commands']
-    response = [ircp.make_notice('Available commands ({} total)'.format(len(all_commands)), packet.sender),]
-    response.extend(ircp.make_notice(c, packet.sender) for c in sorted(all_commands))
+    response = [packet.notice('Available commands ({} total)'.format(len(all_commands))),]
+    response.extend(packet.notice(c) for c in sorted(all_commands))
     return response
 
 
@@ -111,6 +110,7 @@ def command_list(arg, packet, shared):
 #    else:
 #        return ircp.make_notice('You must be admin for this command', packet.sender)
 
+
 def test_command(arg, packet, shared):
     """
     Respond to command by telling user that the bot is listening
@@ -121,14 +121,11 @@ def test_command(arg, packet, shared):
     print('test command called')
     fmt_str = '{0}{1}{2} reporting in! Type {3}:help{2}.'
     test_str = fmt_str.format(CLR_NICK, shared['conf']['bot_nick'], CLR_RESET, CLR_HGLT)
-    if packet.msg_public:
-        return ircp.make_message(test_str, packet.target)
-    else:
-        return ircp.make_notice(test_str, packet.sender)
+    return packet.reply(test_str)
 
 
 @require_auth
-def log_append_command(arg, packet, shared):
+def log_append_command(arg: tuple, packet: ircp.Packet, shared: dict):
     """ Appends something to text logs
 
     arg - the text to append to the log
@@ -137,11 +134,11 @@ def log_append_command(arg, packet, shared):
     to the log.
     """
     if len(arg) < 2:
-        return packet.reply('You need to put something down for me to add!')
+        return packet.notice('You need to put something down for me to add!')
 
     text = packet.text.split(':log')[1].lstrip()
     write_to_log('{0} LOG-APPEND: {1}'.format(packet.sender, arg))
-    return ircp.make_message('Log written', packet.sender)
+    return packet.notice('Log written')
 
 
 @require_auth
@@ -150,19 +147,17 @@ def join_command(arg: tuple, packet: ircp.Packet, shared: dict):
 
         :join <channel> [channel [channel ...]]
     '''
-    output = None
     if len(arg) < 2:
-        output = packet.reply('You need to specify a channel for me to join.')
-    else:
-        output = []
-        for c in arg[1:]:
-            if c.find('#') == 0:
-                output.append(ircp.join_chan(c))
-            else:
-                output.append(packet.reply('{} is not a valid channel'.format(c)))
+        return packet.notice('You need to specify a channel for me to join.')
 
-        output.append(packet.reply('Joined!'))
+    output = []
+    for c in arg[1:]:
+        if c.find('#') == 0:
+            output.append(ircp.join_chan(c))
+        else:
+            output.append(packet.notice('{} is not a valid channel'.format(c)))
 
+    output.append(packet.notice('Joined!'))
     return output
 
 
@@ -173,23 +168,18 @@ def part_command(arg: tuple, packet: ircp.Packet, shared: dict):
         :part <channel> [channel [channel ...]]
     '''
     output = None
-    if packet.sender in shared['auth']:
-        if len(arg) < 2:
-            output = packet.reply('You need to specify a channel for me to join.')
+    if len(arg) < 2:
+        return packet.notice('You need to specify a channel for me to leave.')
+
+    output = []
+    for c in arg[1:]:
+        if c in shared['chan']:
+            output.append(ircp.leave_chan(c))
+            shared['chan'].remove(c)
         else:
-            output = []
-            for c in arg[1:]:
-                if c in shared['chan']:
-                    output.append(ircp.leave_chan(c))
-                    shared['chan'].remove(c)
-                else:
-                    output.append(packet.reply('I am currently not in {}'.format(c)))
+            output.append(packet.notice('I am currently not in {}'.format(c)))
 
-            output.append(ircp.make_notice('Done PARTing', packet.sender))
-    else:
-        output = packet.reply('You do not have permission to do that. You need to :auth')
-
-    print(output)
+    output.append(packet.notice('Done PARTing'))
     return output
 
 
@@ -199,12 +189,12 @@ def list_channels(arg: tuple, packet: ircp.Packet, shared: dict):
     output = None
     if packet.sender in shared['auth']:
         output = []
-        output.append(packet.reply('I am currently in: '))
+        output.append(packet.notice('I am currently in: '))
 
         for c in shared['chan']:
-            output.append(packet.reply(c))
+            output.append(packet.notice(c))
     else:
-        output = packet.reply('You do not have permission to do that. You need to :auth')
+        output = packet.notice('You do not have permission to do that. You need to :auth')
 
     return output
 

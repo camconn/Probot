@@ -38,8 +38,27 @@ def require_auth(callback):
         if packet.sender in shared['auth']:
             return callback(args, packet, shared)
         else:
-            return packet.reply('You must be an admin to run this command. '
+            return packet.notice('You must be an admin to run this command. '
                     'Please login first with :auth')
         return None
-
     return restricted_method
+
+
+def require_public(callback):
+    ''' Decorator to require that messages be sent to public chat before
+    a command is executed at all.
+
+    usage:
+    @require_public
+    def my_public_command(args: tuple, packet: ircpacket.Packet, shared: dict)
+        return packet.reply('This was a public command!')
+    '''
+    def public_method(args: tuple, packet: ircp.Packet, shared: dict):
+        if packet.msg_public:
+            return callback(args, packet, shared)
+        else:
+            return packet.notice('Sorry, but that command is only available '
+                    'through public chat. Try again in a public channel.')
+        return None
+
+    return public_method

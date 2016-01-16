@@ -27,6 +27,7 @@ import requests
 import json
 #import pprint
 import ircpacket as ircp
+from irctools import require_public
 
 
 def get_summary(query):
@@ -108,6 +109,7 @@ def get_summary(query):
         return 'Sorry, but I had an error finding a summary of that page.'
 
 
+@require_public
 def wiki_command(arg, packet, shared):
 
     if len(arg) < 2:

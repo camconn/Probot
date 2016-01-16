@@ -287,17 +287,17 @@ def reload_command(arg: tuple, packet: ircp.Packet, shared: dict):
     load_plugins(shared)
 
     if len(failed_plugins) + len(disabled_plugins) == 0:
-        return packet.reply('All {} plugins reloaded!'.format(len(plugin_list)))
+        return packet.notice('All {} plugins reloaded!'.format(len(plugin_list)))
 
-    response = (packet.reply('{} plugins were reloaded.'.format(len(plugin_list))),
-                packet.reply('The following were NOT loaded: '))
+    response = [packet.notice('{} plugins were reloaded.'.format(len(plugin_list))),
+                packet.notice('The following were NOT loaded: ')]
 
     if len(failed_plugins) > 0:
-        response += (packet.reply('Fail to Load:  ' + ', '.join(failed_plugins)), )
+        response.append(packet.notice('Fail to Load:  ' + ', '.join(failed_plugins)))
     if len(disabled_plugins) > 0:
-        response += (packet.reply('Disabled: '  + ', '.join(disabled_plugins)), )
+        response.append(packet.notice('Disabled: '  + ', '.join(disabled_plugins)))
 
-    response += (packet.reply('Please check your logs for further information.'), )
+    response.append(packet.notice('Please check your logs for further information.'))
 
     return response
 
@@ -338,22 +338,22 @@ def plugin_info_command(arg: tuple, packet: ircp.Packet, shared: dict):
     if comm == 'plugins':
         enabled = all_plugins.difference(disabled_plugins).difference(failed_plugins)
 
-        output = (packet.reply('Enabled plugins ({}): '.format(len(enabled))),
-                  packet.reply(', '.join(enabled)))
+        output = [packet.notice('Enabled plugins ({}): '.format(len(enabled))),
+                  packet.notice(', '.join(enabled))]
         if len(disabled_plugins) > 0:
-            output += (packet.reply('Disabled plugins ({})'.format(len(disabled_plugins))),
-                       packet.reply(', '.join(disabled_plugins)))
+            output.append(packet.notice('Disabled plugins ({})'.format(len(disabled_plugins))))
+            output.append(packet.notice(', '.join(disabled_plugins)))
 
         return output
 
     elif comm == 'plugin':
         if len(arg) < 2:
-            return packet.reply('You need to specify a plugin to inspect!')
+            return packet.notice('You need to specify a plugin to inspect!')
 
         name = arg[1].lower()
 
         if name not in all_plugins:
-            return packet.reply('{} is not a valid plugin name'.format(name))
+            return packet.notice('{} is not a valid plugin name'.format(name))
 
         #is_enabled = (name in enabled)
         is_enabled = not (name in disabled_plugins or name in failed_plugins)
@@ -365,16 +365,17 @@ def plugin_info_command(arg: tuple, packet: ircp.Packet, shared: dict):
                 module = p
                 break
 
-        output = (packet.reply('{} is {}'.format(name, (lambda x: 'ENABLED' if True else 'DISABLED')(is_enabled))),)
+        output = []
+        output.append(packet.notice('{} is {}'.format(name, (lambda x: 'ENABLED' if True else 'DISABLED')(is_enabled))))
         if module:
             if '__plugin_description__' in dir(module):
-                output += (packet.reply(module.__plugin_description__),)
+                output.append(packet.notice(module.__plugin_description__))
             if '__plugin_author__' in dir(module):
-                output += (packet.reply('Author: {}'.format(module.__plugin_author__)),)
+                output.append(packet.notice('Author: {}'.format(module.__plugin_author__)))
             if '__plugin_version__' in dir(module):
-                output += (packet.reply('Version: {}'.format(module.__plugin_version__)),)
+                output.append(packet.notice('Version: {}'.format(module.__plugin_version__)))
             if '__plugin_type__' in dir(module):
-                output += (packet.reply('Plugin Type: {}'.format(module.__plugin_type__)),)
+                output.append(packet.notice('Plugin Type: {}'.format(module.__plugin_type__)))
 
         return output
     else:
@@ -389,30 +390,30 @@ def plugin_toggle(arg: tuple, packet: ircp.Packet, shared: dict):
     :disable <plugin>
     '''
     if len(arg) < 2:
-        return packet.reply('You need to specify a plugin to disable')
+        return packet.notice('You need to specify a plugin to disable')
     if len(arg) > 2:
-        return packet.reply('Too many arguments! The command only uses 1 argument.')
+        return packet.notice('Too many arguments! The command only uses 1 argument.')
 
     command = arg[0].lower()
     name = arg[1].lower()
 
     if command == 'enable':
         if not (name in disabled_plugins or name in failed_plugins):
-            return packet.reply('Plugin is already enabled. Doing nothing.')
+            return packet.notice('Plugin is already enabled. Doing nothing.')
 
         if name in disabled_plugins:
             disabled_plugins.remove(name)
         if name in failed_plugins:
             failed_plugins.remove(name)
 
-        return packet.reply('Plugin is now enabled.')
+        return packet.notice('Plugin is now enabled.')
     elif command == 'disable':
         if name in disabled_plugins:
-            return packet.reply('Plugin is already disabled!')
+            return packet.notice('Plugin is already disabled!')
         else:
             disabled_plugins.add(name)
             # TODO: Reload plugins to get rid of leftovers
-            return packet.reply('Plugin is now disabled!')
+            return packet.notice('Plugin is now disabled!')
     else:
         print('You screwed up.')
 
@@ -424,19 +425,19 @@ def auth_command(arg: tuple, packet: ircp.Packet, shared: dict):
     :auth <password>
     '''
     if len(arg) < 2:
-        return packet.reply('You must specify a password!')
+        return packet.notice('You must specify a password!')
 
     passphrase = arg[1]
 
     if passphrase == shared['conf']['adminpass']:
         if packet.sender in shared['auth']:
-            return packet.reply('You are already logged in!')
+            return packet.notice('You are already logged in!')
         else:
             shared['auth'].add(packet.sender)
             print('{} successfully authenticated.'.format(packet.sender))
-            return packet.reply('Authentication success!')
+            return packet.notice('Authentication success!')
     else:
-        return packet.reply('Authentication failure. Try again later.')
+        return packet.notice('Authentication failure. Try again later.')
 
 
 
@@ -584,8 +585,8 @@ def handle_incoming(line, shared_data):
                         reply = ircp.make_notice('Sorry, but that command does not exist.', msg_packet.sender)
             else:
                 time_left = (shared_data['cooldown_user'][msg_packet.sender] - int(now))
-                reply = ircp.make_notice(('You need to wait. '
-                    'Your cooldown ends in {:.1f} seconds').format(time_left), msg_packet.sender)
+                reply = msg_packet.reply(('You need to wait. '
+                    'Your cooldown ends in {:.1f} seconds').format(time_left))
         else:
             for re_name in shared_data['regexes']:
                 regex = shared_data['regexes'][re_name]

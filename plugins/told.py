@@ -33,8 +33,10 @@ from random import sample
 #import argparse
 import logging
 import ircpacket as ircp
+from irctools import require_public
 
 
+@require_public
 def told_command(arg, packet, shared, is_told=True):
     """
     Tells a user that they got told
@@ -70,6 +72,7 @@ def told_command(arg, packet, shared, is_told=True):
                               '{3[3]} {3[4]}').format(CLR_NICK, person, CLR_RESET, tolds), packet.target)
 
 
+@require_public
 def nottold_command(arg, packet, shared):
     """
     Runs told_command with is_told=True

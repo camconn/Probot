@@ -29,7 +29,7 @@ import ircpacket as ircp
 from subprocess import check_output, STDOUT
 
 
-def which(program):
+def which(program: str) -> str:
     ''' Simple which method.
     Thanks to http://stackoverflow.com/a/377028
     '''
@@ -57,14 +57,14 @@ def fortune_command(arg: tuple, packet: ircp.Packet, shared: dict) -> str:
         if 'fortune.cowsay' in shared:
             command = '{} -a | {}'.format(shared['fortune.path'], shared['fortune.cowsay'])
         else:
-            return packet.reply('This machine does not have cowsay installed. '
+            return packet.notice('This machine does not have cowsay installed. '
                     'Please install cowsay, then reload this plugin.')
 
     # rstrip to remove trailing newline
     ps = check_output(command, shell=True, universal_newlines=True).rstrip()
     print(ps)
 
-    return (ircp.make_notice(line, packet.sender) for line in ps.split('\n'))
+    return (packet.notice(line) for line in ps.split('\n'))
 
 
 def setup_resources(config: dict, shared: dict):

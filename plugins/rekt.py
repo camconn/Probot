@@ -29,9 +29,10 @@ from os import path
 from random import sample
 import logging
 import ircpacket as ircp
-from irctools import CLR_HGLT, CLR_RESET, CLR_NICK
+from irctools import CLR_HGLT, CLR_RESET, CLR_NICK, require_public
 
 
+@require_public
 def rekt_command(arg, packet, shared, is_rekt=True):
     """
     Tells a user that they got rekt
@@ -67,6 +68,7 @@ def rekt_command(arg, packet, shared, is_rekt=True):
                               '{3[3]} {3[4]}').format(CLR_NICK, person, CLR_RESET, rekts), packet.target)
 
 
+@require_public
 def notrekt_command(arg, packet, shared):
     """
     Runs rekt_command with is_rekt=True

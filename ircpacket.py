@@ -81,13 +81,11 @@ class Packet:
         self.is_action = None
         self.nick_to = None
 
-        # Detect if message is valid
-        #assert ':' in message != -1
-
         message_list = message.split(' ', 3)  # split message at each space
 
         # Check if message is sent by a user
         message_pt1 = message_list[0]
+
         try:
             user_end = message_pt1.index('!')
             host_begin = message_pt1.index('@') + 1
@@ -157,21 +155,32 @@ class Packet:
 
     def reply(self, message):
         '''
-        Generates a bot-like response to a user's command.
+        Generates a response to a user's command depending on whether the
+        message sent in a public or private context.
 
-        If the command was in a public channel, then generate a message for
-        the public channel. Otherwise, we shall create a NOTICE to respond
-        to them with.
+        If this (object's) message was sent in a public channel, then
+        generate a message for the public channel. Otherwise, a NOTICE
+        response will generated.
+
+        message - the message to send
         '''
         if self.msg_public:
             return make_message(message, self.target)
         else:
-            return make_notice(message, self.sender)
+            return self.notice(message)
+
+    def notice(self, message):
+        ''' Generates a NOTICE response to a user. This is useful to
+        prevent from spamming chat needlessly.
+
+        message - the message to send
+        '''
+        return make_notice(message, self.sender)
 
 
 def make_message(message, target, msg_type='PRIVMSG'):
     """
-    Format a message to send via PRIVMSG
+    Format a message to send via PRIVMSG.
 
     message - the message to send
     target - the user or channel to send the message to
@@ -196,10 +205,10 @@ def make_notice(message, target):
 
 
 def join_chan(channel):
-    ''' Create a join message '''
+    ''' Generate a join message '''
     return 'JOIN {}'.format(channel)
 
 
 def leave_chan(channel):
-    ''' Leave a channel '''
+    ''' Generate a leave message '''
     return 'PART {}'.format(channel)

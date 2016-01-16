@@ -24,12 +24,10 @@ __plugin_enabled__ = True
 
 import requests
 import json
-#import pprint
 import ircpacket as ircp
 from time import time
 
 CURRENCIES = dict()
-
 ALIASES = {
         'US': 'USD',
         'EU': 'EUR',
@@ -58,7 +56,7 @@ ALIASES = {
 #CURRENCY_URL = 'https://openexchangerates.org/api/currencies.json'
 API_URL = 'https://openexchangerates.org/api/latest.json?app_id={}'
 
-def get_rates(shared):
+def get_rates(shared: dict):
     if ('convert.time' in shared) and ('convert.cache' in shared) and \
         (shared['convert.time'] + 3600*12 > time()):
             #print(shared['convert.cache'])
@@ -82,7 +80,7 @@ def currency_rate(rates: dict, currency: str) -> float:
         return float(rates[currency])
     return 0.0
 
-def get_conversion(arg, shared):
+def get_conversion(arg: tuple, shared: dict):
     print('args: {}'.format(arg))
 
     data = get_rates(shared)
@@ -142,27 +140,27 @@ def get_conversion(arg, shared):
     return '{} {} is {:.3f} {}'.format(initial_amount, type_from, final_amount, type_to)
 
 
-def convert_command(arg, packet, shared):
+def convert_command(arg: tuple, packet: ircp.Packet, shared: dict):
 
     if len(arg) < 5:
-        return (ircp.make_notice('You need to specify an amount, original current, and output currency!', packet.sender),
-                ircp.make_notice('For example - :convert $50 USD to Pounds', packet.sender))
+        return (packet.notice('You need to specify an amount, original current, and output currency!'),
+                packet.notice('For example - :convert $50 USD to Pounds'))
 
     conversion = get_conversion(arg[1:], shared)
 
     if conversion == '' or conversion is None:
         return None
     else:
-        return ircp.make_message(conversion, packet.target)
+        return packet.reply(conversion)
 
 
-def list_currencies(arg, packet, shared):
-    c_list = [ircp.make_notice('Available currencies: ({} total)'.format(len(CURRENCIES)), packet.sender)]
-    c_list.extend(ircp.make_notice(c, packet.sender) for c in sorted(CURRENCIES))
+def list_currencies(arg: tuple, packet: ircp.Packet, shared: dict):
+    c_list = [packet.notice('Available currencies: ({} total)'.format(len(CURRENCIES)))]
+    c_list.extend(packet.notice(c) for c in sorted(CURRENCIES))
     return c_list
 
 
-def whatis_command(arg, packet, shared):
+def whatis_command(arg: tuple, packet: ircp.Packet, shared: dict):
     if len(arg) < 2:
         return ircp.make_notice('You must specify a type of currency!', packet.sender)
 

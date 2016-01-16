@@ -68,12 +68,10 @@ def calc_command(arg: tuple, packet: ircp.Packet, shared: dict) -> str:
         reply = 'Result: {}'.format(result)
         return packet.reply(reply)
     except ZeroDivisionError as e:
-        reply = 'Error: Divide by zero.'
-        return ircp.make_notice(reply, packet.sender)
+        return packet.notice('Error: Divide by zero.')
     except Exception as e:
         print(e)
-        reply = 'Sorry, but that expression was invalid. Please try again.'
-        return ircp.make_notice(reply, packet.sender)
+        return packet.notice('Sorry, but that expression was invalid. Please try again.')
 
 
 def setup_resources(config: dict, shared: dict):
