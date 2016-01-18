@@ -586,7 +586,7 @@ def handle_incoming(line, shared_data):
             for re_name in shared_data['regexes']:
                 regex = shared_data['regexes'][re_name]
                 match = regex.search(msg_packet.text)
-                if match is None:
+                if match is not None:
                     print('matched to regex "{}"'.format(re_name))
                     reply = shared_data['re_response'][re_name](match, msg_packet, shared_data)
                     break
