@@ -100,8 +100,11 @@ class Packet:  # pylint: disable=too-many-instance-attributes
         except ValueError:
             self.host = 'SERVER'
             if message_pt1 == 'PING' or message_pt1 == 'PONG':
-                self.host = message.split(':')[1]
+                print('got a PING')
+                self.host = message.split(':')[1].strip()
                 self.msg_type = message_pt1
+                print('host: {}'.format(self.host))
+                return
 
         # Make sure message is long enough to parse
         if not len(message_list) > 1:
@@ -147,7 +150,7 @@ class Packet:  # pylint: disable=too-many-instance-attributes
     @property
     def sender_is_user(self):
         ''' Determine if this event was caused by a user '''
-        return self.host == 'SERVER'
+        return self.host == 'SERVER' or '@' not in self.host
 
     @property
     def msg_public(self):
@@ -205,11 +208,11 @@ def make_notice(message, target):
     return make_message(message, target, msg_type='NOTICE')
 
 
-def join_chan(channel):
+def join_chan(channel: str):
     ''' Generate a join message '''
     return 'JOIN {}'.format(channel)
 
 
-def leave_chan(channel):
+def leave_chan(channel: str):
     ''' Generate a leave message '''
     return 'PART {}'.format(channel)

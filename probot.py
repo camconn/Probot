@@ -590,21 +590,15 @@ def handle_incoming(line, shared_data):
                     print('matched to regex "{}"'.format(re_name))
                     reply = shared_data['re_response'][re_name](match, msg_packet, shared_data)
                     break
-    # elif (not shared_data['conf']['logged_in']) and msg_packet.msg_type == 'NUMERIC':
-    #     if msg_packet.numeric == ircp.Packet.numerics['RPL_ENDOFMOTD']:  # When first logging in
-    #         reply = ircp.make_message('identify {}'.format(config['password']), 'NickServ')
-    #         reply = []
-    #         for channel in config['channels'].split(' '):
-    #             if config['intro']:
-    #                 j, r = ircp.join_chan(channel, config['intro'])
-    #                 reply.extend((j, r))
-    #             else:
-    #                 reply.append(ircp.join_chan(channel))
-    #             print('Joining channel {}'.format(channel))
-    #             shared_data['chan'].append(channel)
-    #         shared_data['conf']['logged_in'] = True  # Stop checking for login numerics
     elif msg_packet.msg_type == 'NUMERIC':
-        if msg_packet.numeric == ircp.Packet.numerics['RPL_ENDOFMOTD']:
+        if (config['password'] and not config['logged_in'] and
+                msg_packet.numeric == ircp.Packet.numerics['RPL_ENDOFMOTD']):
+            reply = []  # pylint: disable=redefined-variable-type
+            reply.append(ircp.make_message('identify {} {}'.format(config['bot_nick'], config['password']), 'nickserv'))
+            for channel in config['channels'].split(' '):
+                reply.append(ircp.join_chan(channel))
+            shared_data['conf']['logged_in'] = True  # Stop checking for login numerics
+        elif msg_packet.numeric == ircp.Packet.numerics['RPL_ENDOFMOTD']:
             reply = (ircp.join_chan(c) for c in shared_data['conf']['channels'].split(' '))
 
     elif msg_packet.msg_type == 'PING':
