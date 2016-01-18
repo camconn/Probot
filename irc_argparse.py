@@ -1,37 +1,72 @@
 #!/usr/bin/env python3
+
+# probot - An asynchronous IRC bot written in Python 3
+# Copyright (c) 2016 Cameron Conn
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
 '''
-IRC Command parsing libary
-This is a modified version of argparse to make things easier on the
-developer of this program.
+Command parsing libary
 
-This module is the result of NIH syndrome
-
-Licensed GPL v3
-blah blah blah
-(c) 2016 linuxtinkerer
+This file is used to help parse argument for probot.
+All of the interesting stuff is located in the parse
+function.
 '''
 
 import re
+import logging
 
-def _pad_str(s, l):
+
+SYMBOLS = set('!@#$%^&*()_-=[]{}|<>;/?')
+QUOTES = set(""""\'""")
+
+
+def _pad_str(string, length):
     '''
     Pad string `s` to length `l`
 
     If len(s) >= l, this does nothing.
     '''
-    if len(s) < l:
-        return '{}{}'.format(s, ' '*(l-len(s)))
-    return s
+    if len(string) < length:
+        return '{}{}'.format(string, ' ' * (length - len(string)))
+    return string
 
 
-def parse(args) -> tuple:
-    '''
-    Parse a string into separate arguments, while paying attention to
-    things such as quotes and escape characters. This function parses
-    arguments similar to `sys.argv`.
+def _is_whitespace(char):
+    ''' Figure out if this character is whitespace or not '''
+    if char in SYMBOLS:
+        return False
+    else:
+        return re.match(r'[\w]', char) is None
+
+
+def parse(args) -> tuple:  # pylint: disable=too-many-branches,too-many-statements
+    ''' Parse a string into separate arguments, while paying
+    attention to things such as quotes and escape characters.
+    This function parses arguments similar to `sys.argv`.
+
+    Probot uses this instead of shutil because shutil likes to
+    blow up when there are mismatched quotes. This function
+    simply ignores mismatched quotes.
+
+    This method disables the pylint `too-many-branches` warning
+    because this problem, by nature, is complex.
 
     Returns a tuple of words.
     '''
+    print(args)
     # Break up words
     words = []
     current_word = ''
@@ -40,88 +75,75 @@ def parse(args) -> tuple:
     escape_char = False
     quote_type = None
 
-    punctuation = '!@#$%^&*()-=[]{}|<>;/?'
-
-    def is_whitespace(char):
-        if char in punctuation:
-            return False
-        else:
-            return (re.match('[\s]', char) != None)
-
-    quotes = ("'", '"')
-
-    for i, c in enumerate(args):
-        whitespace = is_whitespace(c)
+    for i, ch in enumerate(args):
+        whitespace = _is_whitespace(ch)
 
         if in_word:
-            print('i', end='')
+            logging.debug('i', end='')
         else:
-            print('o', end='')
+            logging.debug('o', end='')
 
         if whitespace:
-            print('W "', end='')
+            logging.debug('W "', end='')
         else:
-            print('N "', end='')
-        
-        print(c, end='": ')
+            logging.debug('N "', end='')
+
+        logging.debug(ch, end='": ')
 
         if (not whitespace) or quote_type:
             if escape_char:
-                current_word += c
+                current_word += ch
                 escape_char = False
-                print('escaped by previous char')
-            elif c == '\\':
+                logging.debug('escaped by previous char')
+            elif ch == '\\':
                 escape_char = True
-                print('backslash escapes next')
-            elif c in quotes:
-                if c == quote_type:
+                logging.debug('backslash escapes next')
+            elif ch in QUOTES:
+                if ch == quote_type:
                     quote_type = None
-                    print('ended quotes')
-                elif quote_type == None:
-                    if is_whitespace(previous_character):
-                        quote_type = c
-                        print('started quotes')
+                    logging.debug('ended quotes')
+                elif quote_type is None:
+                    if _is_whitespace(previous_character):
+                        quote_type = ch
+                        logging.debug('started quotes')
                     else:
-                        print('quotes inside word. ignoring.')
-                elif c != quote_type:
-                    current_word += c
-                    print('character {}'.format(c))
+                        logging.debug('quotes inside word. ignoring.')
+                elif ch != quote_type:
+                    current_word += ch
+                    logging.debug('character %s', ch)
                 else:
-                    raise ParseError('Shouldn\'t have gotten here')
+                    raise Exception('Shouldn\'t have gotten here')
             else:
                 # buggy fix for quotes within words
-                if previous_character in quotes:
+                if previous_character in QUOTES:
                     quote_type = previous_character
-                    print('**', end='')
+                    logging.debug('**', end='')
 
-                current_word += c
-                print('character {}'.format(c))
+                current_word += ch
+                logging.debug('character %s', ch)
             in_word = True
         elif whitespace and (not quote_type):
             if in_word:
                 words.append(current_word)
                 in_word = False
                 current_word = ''
-                print('ended word')
+                logging.debug('ended word')
             else:
-                print('whitespace has no effect')
-                pass
+                logging.debug('whitespace has no effect')
             in_word = False
         else:
-            raise ParseError('How did we get here?')
+            raise Exception('How did we get here?')
 
         # last char alive
-        if in_word and i == len(args)-1:
-            if quote_type != None:
-                #raise ParseError('Mismatched quotes!')
-                print('Mismatched quotes! Ending anyways!')
-                #words.append(current_word)
+        if in_word and i == len(args) - 1:
+            # if quote_type is None:
+            #     logging.debug('Mismatched quotes! Ending anyways!')
             if whitespace:
                 words.append(current_word)
             else:
                 words.append(current_word)
 
-        previous_character = c
+        previous_character = ch
 
     print(words)
     return tuple(words)

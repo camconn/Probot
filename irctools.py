@@ -17,13 +17,22 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+'''
+IRCTools - Some syntactical sugar for plugin developers.
+
+This file contains constants, decorators, and functions that
+make the life of probot plugin developers easier.
+'''
+
 import ircpacket as ircp
 
 
-CLR_HGLT = '3'
-CLR_RESET = ''
-CLR_NICK = '11'
-CLR_ITLCS = chr(int("0x1d", 0))
+# IRC Color Formatting Constants
+CLR_RESET = ''                 # Formatting reset character
+CLR_HGLT = '3'                 # Highlighting for commands
+CLR_NICK = '11'                # Highlighting for nicks
+CLR_ITLCS = chr(int("0x1d", 0))  # Italics formatting character
+
 
 def require_auth(callback):
     ''' Decorator to make it easier for plugins to require authentication
@@ -34,12 +43,12 @@ def require_auth(callback):
     def my_fun_command(args: tuple, packet: ircpacket.Packet, shared: dict)
         return packet.reply('You are an admin!')
     '''
-    def restricted_method(args: tuple, packet: ircp.Packet, shared: dict):
+    def restricted_method(args: tuple, packet: ircp.Packet, shared: dict):  # pylint: disable=missing-docstring
         if packet.sender in shared['auth']:
             return callback(args, packet, shared)
         else:
             return packet.notice('You must be an admin to run this command. '
-                    'Please login first with :auth')
+                                 'Please login first with :auth')
         return None
     return restricted_method
 
@@ -53,12 +62,12 @@ def require_public(callback):
     def my_public_command(args: tuple, packet: ircpacket.Packet, shared: dict)
         return packet.reply('This was a public command!')
     '''
-    def public_method(args: tuple, packet: ircp.Packet, shared: dict):
+    def public_method(args: tuple, packet: ircp.Packet, shared: dict):  # pylint: disable=missing-docstring
         if packet.msg_public:
             return callback(args, packet, shared)
         else:
             return packet.notice('Sorry, but that command is only available '
-                    'through public chat. Try again in a public channel.')
+                                 'through public chat. Try again in a public channel.')
         return None
 
     return public_method

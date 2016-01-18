@@ -17,7 +17,18 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-class Packet:
+'''
+IRCPacket - A simplification of IRC Events
+
+This file includes a Packet object, as well as a few functions
+to make handling IRC a little easier.
+'''
+
+
+import re
+
+
+class Packet:  # pylint: disable=too-many-instance-attributes
     """
     This class interprets an IRC messages' structure
 
@@ -26,9 +37,7 @@ class Packet:
     Object properties:
     sender - name of sender or address/IP of server sending message
     sender_is_user - whether or not the sender is a user
-    sender_logged_in - whether or not the sender of this message is logged in
     host - host of sender (if server, defaults to `SERVER`)
-    time - time this message was sent
     target - the channel or user this PRIVMSG was directed toward
     msg_type - what type of message this is (e.g. PRIVMSG, JOIN, QUIT, PING, ACTION, numeric, etc.)
     msg_public - whether the message was sent in public chat (i.e. a channel)
@@ -69,13 +78,9 @@ class Packet:
     def __init__(self, message):
         """message - full message from socket"""
         self.sender = None
-        self.sender_is_user = None
-        self.sender_logged_in = None  # Unimplemented
         self.host = None
-        self.time = None  # Unimplemented
         self.target = None
         self.msg_type = None
-        self.msg_public = None
         self.numeric = None
         self.text = None
         self.is_action = None
@@ -93,7 +98,7 @@ class Packet:
                 self.sender = message_pt1[1:user_end]
                 self.host = message_pt1[host_begin:]
         except ValueError:
-            self.host == 'SERVER'
+            self.host = 'SERVER'
             if message_pt1 == 'PING' or message_pt1 == 'PONG':
                 self.host = message.split(':')[1]
                 self.msg_type = message_pt1
@@ -105,44 +110,30 @@ class Packet:
         # Attempt to parse message type from packet
         message_type = message_list[1]
 
-        if message_type == 'PRIVMSG':
-            message_target = message_list[2]
-            self.sender_is_user = True
-            self.msg_type = message_type
+        numeric_match = re.match('[0-9]{1,3}', message_type)
 
-            if '#' in message_target:  # If sent to a #channel
-                self.msg_public = True
-                self.target = message_target
-            else:
-                self.msg_public = False
-                self.target = message_target
-        elif message_type == 'NICK':
-            self.msg_type = message_type
-
-        elif message_type == 'JOIN':
-            self.msg_type = message_type
-            self.target = message_list[2][1:]
-        elif message_type == 'PART':
-            self.msg_type = message_type
-        elif message_type == 'QUIT':
-            self.msg_type = message_type
-        elif message_type == 'MODE':
-            self.msg_type = message_type
-        elif message_type == 'NOTICE':
-            self.sender_is_user = False
-            self.msg_public = False
-            self.msg_type = message_type
-        else:
+        if numeric_match:
             try:
                 numeric_code = int(message_type)
                 self.numeric = numeric_code
                 self.msg_type = 'NUMERIC'
             except ValueError:
                 pass
+        else:
+            if message_type == 'PRIVMSG':
+                message_target = message_list[2]
+                self.msg_type = message_type
+                self.target = message_target
+            elif message_type == 'JOIN':
+                self.msg_type = message_type
+                self.target = message_list[2][1:]
+            else:
+                self.msg_type = message_type
 
         # If IRC message is a message
         if message_type in ('PRIVMSG', 'NOTIFY', 'NUMERIC', 'NOTICE'):
-            self.text = message_list[3][1:]  # The [1:] removes the :colon: from the front of the message
+            # The [1:] removes the :colon: from the front of the message
+            self.text = message_list[3][1:]
 
             # Check if message is an ACTION
             if self.text[:7] == '\001ACTION':
@@ -152,6 +143,16 @@ class Packet:
                 self.text = self.text[8:-1]
         elif message_type == 'NICK':
             self.nick_to = message_list[2][1:]
+
+    @property
+    def sender_is_user(self):
+        ''' Determine if this event was caused by a user '''
+        return self.host == 'SERVER'
+
+    @property
+    def msg_public(self):
+        ''' Is this event public to all users? '''
+        return '#' in self.target
 
     def reply(self, message):
         '''

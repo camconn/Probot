@@ -16,52 +16,53 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import requests
+import json
+from time import time
+import ircpacket as ircp
+
 __plugin_description__ = 'Convert between currencies'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
 __plugin_type__ = 'command'
 __plugin_enabled__ = True
 
-import requests
-import json
-import ircpacket as ircp
-from time import time
-
 CURRENCIES = dict()
-ALIASES = {
-        'US': 'USD',
-        'EU': 'EUR',
-        'BITCOIN': 'BTC',
-        'BITCOINS': 'BTC',
-        'DOLLAR': 'USD',
-        'DOLLARS': 'USD',
-        'POUND': 'GBP',
-        'POUNDS': 'GBP',
-        'EURO': 'EUR',
-        'EUROS': 'EUR',
-        'RUBLE': 'RUB',
-        'RUBLES': 'RUB',
-        'YEN': 'JPY',
-        'CANADA': 'CDN',
-        'CANADIAN': 'CDN',
-        'AUS': 'AUD',
-        'MONOPOLY': 'USD',
-        'MONEY': 'USD',
-        'MONOPOLY MONEY': 'USD',
-        'UDS': 'USD',
-        'CRAP': 'USD',
-}
+ALIASES = {'US': 'USD',
+           'EU': 'EUR',
+           'BITCOIN': 'BTC',
+           'BITCOINS': 'BTC',
+           'DOLLAR': 'USD',
+           'DOLLARS': 'USD',
+           'POUND': 'GBP',
+           'POUNDS': 'GBP',
+           'EURO': 'EUR',
+           'EUROS': 'EUR',
+           'RUBLE': 'RUB',
+           'RUBLES': 'RUB',
+           'YEN': 'JPY',
+           'CANADA': 'CDN',
+           'CANADIAN': 'CDN',
+           'AUS': 'AUD',
+           'MONOPOLY': 'USD',
+           'MONEY': 'USD',
+           'MONOPOLY MONEY': 'USD',
+           'UDS': 'USD',
+           'CRAP': 'USD'}
 
 #OLD_URL = 'https://api.fixer.io/latest?base=USD'
 #CURRENCY_URL = 'https://openexchangerates.org/api/currencies.json'
 API_URL = 'https://openexchangerates.org/api/latest.json?app_id={}'
 
+
 def get_rates(shared: dict):
+    ''' Get conversion rates either from cache or via the
+    OpenExchangeRates API'''
     if ('convert.time' in shared) and ('convert.cache' in shared) and \
-        (shared['convert.time'] + 3600*12 > time()):
-            #print(shared['convert.cache'])
-            print('loading from cache!')
-            return shared['convert.cache']
+            (shared['convert.time'] + 3600 * 12 > time()):
+        #print(shared['convert.cache'])
+        print('loading from cache!')
+        return shared['convert.cache']
     else:
         r = requests.get(API_URL.format(shared['conf']['oxr_id']))
 
@@ -80,6 +81,7 @@ def currency_rate(rates: dict, currency: str) -> float:
         return float(rates[currency])
     return 0.0
 
+
 def get_conversion(arg: tuple, shared: dict):
     print('args: {}'.format(arg))
 
@@ -88,7 +90,6 @@ def get_conversion(arg: tuple, shared: dict):
         return
 
     conversions = json.loads(data)
-    base = conversions['base']
     conversions['rates']['USD'] = str(1.000)
     #print('conversions:')
     #print(conversions)
@@ -98,7 +99,7 @@ def get_conversion(arg: tuple, shared: dict):
     try:
         initial_amount = float(arg[0])
         type_from = str(arg[1]).upper()
-        type_to = str(arg[len(arg)-1]).upper()
+        type_to = str(arg[len(arg) - 1]).upper()
     except ValueError:
         return 'You need to specify a valid number to convert *from*'
 
@@ -108,7 +109,7 @@ def get_conversion(arg: tuple, shared: dict):
         type_to = ALIASES[type_to]
 
     if (type_from not in CURRENCIES) or \
-        (type_to not in CURRENCIES):
+            (type_to not in CURRENCIES):
         return 'You must specify a valid currency type. Type :currencies to see available types.'
 
     rate_from = currency_rate(conversions['rates'], type_from)
@@ -200,6 +201,7 @@ def setup_resources(config: dict, shared: dict):
     shared['cooldown']['currency'] = 20
     shared['cooldown']['currencies'] = 'currency'
     shared['cooldown']['whatis'] = 2
+
 
 def setup_commands(all_commands: dict):
     all_commands['convert'] = convert_command

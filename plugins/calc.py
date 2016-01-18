@@ -17,52 +17,63 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import math
+import ircpacket as ircp
+
 __plugin_description__ = 'Simple command-line calculator'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
 __plugin_type__ = 'command'
 __plugin_enabled__ = True
 
-# GPLv3
-# yada yada yada
-# Made by lt
-
-import ircpacket as ircp
-import math
-
-# Bold move from the Rookie Cotton, let's see if it pays off
+sqrt = math.sqrt
 r = math.sqrt
 s = math.sin
 c = math.cos
 t = math.tan
 p = math.pi
 
-ALLOWED = '( ) 0 1 2 3 4 5 6 7 8 9 - = + / * // . % r s c t p e'.split(' ')
-ALLOWED.append(' ')
+ALLOWED = set('( ) 0 1 2 3 4 5 6 7 8 9 - = + / * // . % r q s c t p e'.split(' '))
+ALLOWED.add(' ')
+
 
 def evaluate_expression(expression: str) -> int:
-    '''Evaluate a mathematical expression'''
+    ''' Evaluate a mathematical expression
+
+    eval() is used here, so we make sure to toss out anything
+    that could be potentially unsafe for us to take from a random
+    stranger on IRC.
+
+
+    '''
     for char in expression:
         if char not in ALLOWED:
             print('{} is not allowed'.format(char))
             return
-    else:
-        try:
-            print(expression)
 
-            val = eval(expression)
-            return val
-        except Exception as e:
-            print(e)
-            raise e
+    try:
+        print(expression)
+
+        val = eval(expression)  # pylint: disable=eval-used
+        return val
+    except Exception as e:
+        print(e)
+        raise e
 
 
 def calc_command(arg: tuple, packet: ircp.Packet, shared: dict) -> str:
+    ''' Evaluate a mathematical expression
+
+    usage:
+    :calc <expression>
+    :calc 1 + 1 == 2
+    :calc 3^3
+    '''
     problem = (''.join(arg[1:])).replace('^', '**')
     print('solving for {}'.format(problem))
     try:
         result = evaluate_expression(problem)
-        if result == None:
+        if result is None:
             raise ValueError('Invalid result')
 
         reply = 'Result: {}'.format(result)
@@ -77,6 +88,7 @@ def calc_command(arg: tuple, packet: ircp.Packet, shared: dict) -> str:
 def setup_resources(config: dict, shared: dict):
     shared['help']['calc'] = 'Evaluate a math problem || :calc <expression> || :calc 3.14 ^ 2 + 2'
     shared['cooldown']['calc'] = 1
+
 
 def setup_commands(all_commands: dict):
     all_commands['calc'] = calc_command
