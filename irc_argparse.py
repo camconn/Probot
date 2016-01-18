@@ -66,7 +66,7 @@ def parse(args) -> tuple:  # pylint: disable=too-many-branches,too-many-statemen
 
     Returns a tuple of words.
     '''
-    print(args)
+    logging.debug(args)
     # Break up words
     words = []
     current_word = ''
@@ -78,17 +78,21 @@ def parse(args) -> tuple:  # pylint: disable=too-many-branches,too-many-statemen
     for i, ch in enumerate(args):
         whitespace = _is_whitespace(ch)
 
-        if in_word:
-            logging.debug('i', end='')
-        else:
-            logging.debug('o', end='')
+        # debug_out = ''
+        # if in_word:
+        #     debug_out = 'i'
+        # else:
+        #     debug_out = 'o'
 
-        if whitespace:
-            logging.debug('W "', end='')
-        else:
-            logging.debug('N "', end='')
+        # if whitespace:
+        #     debug_out = '{}W'.format(debug_out)
+        #     # logging.debug('W "', end='')
+        # else:
+        #     debug_out = '{}N'.format(debug_out)
+        #     # logging.debug('N "', end='')
 
-        logging.debug(ch, end='": ')
+        # debug_out = '{} "{}": '.format(debug_out, ch)
+        # logging.debug(debug_out)
 
         if (not whitespace) or quote_type:
             if escape_char:
@@ -117,7 +121,7 @@ def parse(args) -> tuple:  # pylint: disable=too-many-branches,too-many-statemen
                 # buggy fix for quotes within words
                 if previous_character in QUOTES:
                     quote_type = previous_character
-                    logging.debug('**', end='')
+                    # logging.debug('**', end='')
 
                 current_word += ch
                 logging.debug('character %s', ch)
