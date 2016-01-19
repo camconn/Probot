@@ -128,8 +128,8 @@ def _get_page_title(link):
 
     try:
         r = requests.get(link, headers=REQUEST_HEADERS,
-                         allow_redirects=True, timeout=3,
-                         encoding='utf-8')
+                         allow_redirects=True, timeout=3)
+        r.encoding = 'utf-8'
 
         if r.status_code != requests.codes.ok:
             signal.alarm(0)
