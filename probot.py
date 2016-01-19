@@ -230,7 +230,6 @@ def load_plugins(shared: dict):
         py_file = open(pl_path, 'r')
         # The below lines makes flake8 upset. Let's ignore it.
         load_module('plugins', py_file, pl_path, desc)  # NOQA
-        # TODO: Do we need to call close() on py_file?
 
     ALL_PLUGINS.clear()
     # if no modules already enabled
@@ -254,7 +253,6 @@ def load_plugins(shared: dict):
                 print('looking in {}'.format(pl_path))
                 py_file = open(pl_path, 'r')
                 module = load_module(pl_name, py_file, pl_path, desc)
-                # TODO: Do we need to call close() on py_file?
 
             print('Loaded {}'.format(module))
             # Plugins without __plugin_enabled__ are never loaded.
@@ -283,15 +281,19 @@ def load_plugins(shared: dict):
             plug.setup_resources(shared['conf'], shared)
             plug.setup_commands(shared['commands'])
 
+    # Set up stats
+    shared['stats']['plugins.available'] = len(ALL_PLUGINS)
+    shared['stats']['plugins.disabled'] = len(DISABLED_PLUGINS)
+    shared['stats']['plugins.failed'] = len(FAILED_PLUGINS)
+
 
 @require_auth
-def reload_command(arg: tuple, packet: ircp.Packet, shared: dict):
+def reload_command(_: tuple, packet: ircp.Packet, shared: dict):
     '''
     Reloads all plugins as well as their data files
     '''
     print('Reload command called')
     load_plugins(shared)
-
     if len(FAILED_PLUGINS) + len(DISABLED_PLUGINS) == 0:
         return packet.notice('All {} plugins reloaded!'.format(len(PLUGIN_LIST)))
 
@@ -438,8 +440,8 @@ def auth_command(arg: tuple, packet: ircp.Packet, shared: dict):
 
 def load_textfile(filename):
     """Loads multiline message form a text file into a tuple"""
-    with open(filename) as f:
-        return tuple(line.strip() for line in f)
+    with open(filename) as textfile:
+        return tuple(line.strip() for line in textfile)
 
 
 def json_save(filename, dump_dict):
@@ -450,25 +452,23 @@ def json_save(filename, dump_dict):
     dump_dict - dictionary object to save
     """
     logging.info('saving file')
-    with open(filename, 'wt') as f:
+    with open(filename, 'wt') as json_file:
         # We indent so it's human readable. Sort for easy offline editing
-        json.dump(dump_dict, f, indent=True, sort_keys=True)
+        json.dump(dump_dict, json_file, indent=True, sort_keys=True)
         logging.info('file saved')
 
 
 def load_json(filename):
-    """Load and parse a JSON file"""
-    filestring = ''
+    """ Load and parse a JSON file """
 
-    with open(filename) as jsfile:
-        for line in jsfile:
-            filestring += line
+    json_dict = None
+    with open(filename) as jsonfile:
+        json_dict = json.load(jsonfile)
 
-    json_dict = json.loads(filestring)
     return json_dict
 
 
-def get_cooldown(c: str, now: float, shared: dict):
+def get_cooldown(command: str, now: float, shared: dict):
     ''' Get the time that a user should be off of their
     cooldown for using a command
 
@@ -478,8 +478,8 @@ def get_cooldown(c: str, now: float, shared: dict):
     '''
     cool = now
 
-    if c in shared['cooldown']:
-        value = shared['cooldown'][c]
+    if command in shared['cooldown']:
+        value = shared['cooldown'][command]
 
         # Handle aliases
         if isinstance(value, str):
@@ -533,8 +533,15 @@ def setup(config):
         'cooldown_user': dict(),
         'cooldown': dict(),
         'auth': set(),
-        'recent_messages': deque(maxlen=30)
+        'recent_messages': deque(maxlen=30),
+        'stats': dict(),
     }
+
+    stats = shared_data['stats']
+    stats['num_messages'] = 0
+    stats['starttime'] = int(time.time())
+    print('stats:')
+    print(shared_data['stats'])
 
     # load plugins. This *has* to happend *after* shared_data is set up
     load_plugins(shared_data)
@@ -550,6 +557,8 @@ def handle_incoming(line, shared_data):
     shared_data - the shared_data with literally everything in it
     '''
     config = shared_data['conf']
+    stats = shared_data['stats']
+    stats['num_messages'] = stats.get('num_messages', 0) + 1
     reply = None  # Reset reply
     msg_packet = ircp.Packet(line)
 
@@ -594,7 +603,8 @@ def handle_incoming(line, shared_data):
         if (config['password'] and not config['logged_in'] and
                 msg_packet.numeric == ircp.Packet.numerics['RPL_ENDOFMOTD']):
             reply = []  # pylint: disable=redefined-variable-type
-            reply.append(ircp.make_message('identify {} {}'.format(config['bot_nick'], config['password']), 'nickserv'))
+            reply.append(ircp.make_message('identify {} {}'.format(config['bot_nick'],
+                                           config['password']), 'nickserv'))
             for channel in config['channels'].split(' '):
                 reply.append(ircp.join_chan(channel))
             shared_data['conf']['logged_in'] = True  # Stop checking for login numerics
