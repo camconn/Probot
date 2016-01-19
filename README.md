@@ -71,6 +71,8 @@ In case that doesn't convince you, here's the laundry list of what Probot's got:
     - `:[not]told` - get #told
     - `:[not]rekt` - get #rekt
     - `:partyboat` - start the party boat
+    - `:uptime` - get current uptime for the bot
+    - `:stats` - get statistics about the bot (for this session)
     - `:whatis` - look up the long name for a currency identifier
     - `:wiki` - search wikipedia for a term
 - Plugins to recognize text
@@ -103,8 +105,8 @@ Setup
 The setup is very simple. Install some modules and you're good!
 
 1. Copy this code to somewhere on your computer.
-2. Install required pip modules: `pip install requests bs4 hurry.filesize` should
-do it. Use a virtualenv if you want.
+2. Install required pip modules: `pip install requests bs4` should do it. Use a
+virtualenv if you want.
 3. Copy `config.template.json` to `config.json`.
 4. Edit `config.json` to your liking. The options are self-explanatory.
 5. If you aren't using the OpenExchangeRates API, then disable the plugin or all hell

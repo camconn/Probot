@@ -26,13 +26,14 @@ of messages parsed)
 
 
 import datetime
-from irctools import require_auth
+from irctools import require_auth, CLR_HGLT, CLR_RESET
 import ircpacket as ircp
 
-HAS_TRACING = False
+_IS_TRACING = False
 try:
-    import tracemalloc
-    HAS_TRACING = True
+    import tracemalloc  # pylint: disable=wrong-import-order,wrong-import-position
+    if tracemalloc.is_tracing():
+        _IS_TRACING = True
 except ImportError:
     pass
 
@@ -85,21 +86,29 @@ def _uptime(start_time: int) -> str:
     return time_str
 
 
-@require_auth
 def stats_command(__: tuple, packet: ircp.Packet, shared: dict):
     """ Print statistical data about this bot """
     stats = shared['stats']
     uptime = _uptime(shared['stats']['starttime'])
 
-    output = [packet.notice('Current uptime: {}'.format(uptime)),
+    import resource
+    mem_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    tracing_status = (lambda x: 'enabled' if x else 'disabled')(_IS_TRACING)
+    from platform import platform, python_version
+
+    output = (packet.notice('Current uptime: {}'.format(uptime)),
               packet.notice('Available plugins: {}'.format(stats['plugins.available'])),
               packet.notice('Disabled plugins: {}'.format(stats['plugins.disabled'])),
               packet.notice('Failed plugins: {}'.format(stats['plugins.failed'])),
-              packet.notice('Parsed messages: {}'.format(stats['num_messages']))]
-
-    import resource
-    mem_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    output.append(packet.notice('Memory usage: {} KB'.format(mem_usage)))
+              packet.notice('Parsed messages: {}'.format(stats['num_messages'])),
+              packet.notice('Commands run: {}'.format(stats['commands_run'])),
+              packet.notice('Regex Matches: {}'.format(stats['regex_matches'])),
+              packet.notice('Probot memory usage: {} KB'.format(mem_usage)),
+              packet.notice('Bot admins online: {}'.format(len(shared['auth']))),
+              packet.notice('Memory tracing is {}'.format(tracing_status)),
+              packet.notice('Cows: {}:moo{}'.format(CLR_HGLT, CLR_RESET)),
+              packet.notice('Platform: {}'.format(platform())),
+              packet.notice('Running on Python {}'.format(python_version())))
 
     return output
 
@@ -115,7 +124,7 @@ def uptime_command(__: tuple, packet: ircp.Packet, shared: dict):
 @require_auth
 def memory_command(args: tuple, packet: ircp.Packet, ___: dict):
     """ Print the biggest memory hogs """
-    if (not HAS_TRACING) or (not tracemalloc.is_tracing()):
+    if not _IS_TRACING:
         return packet.notice('Sorry, but tracing is currently disabled. '
                              'Please restart probot with the "PYTHONTRACEMALLOC=NFRAME" '
                              'environment variable.')
@@ -140,7 +149,7 @@ def memory_command(args: tuple, packet: ircp.Packet, ___: dict):
 @require_auth
 def memory_obj(args: tuple, packet: ircp.Packet, ___: dict):
     """ Print the biggest memory hogs """
-    if (not HAS_TRACING) or (not tracemalloc.is_tracing()):
+    if not _IS_TRACING:
         return packet.notice('Sorry, but tracing is currently disabled. '
                              'Please restart probot with the "PYTHONTRACEMALLOC=NFRAME" '
                              'environment variable.')
@@ -174,7 +183,7 @@ def setup_resources(config: dict, shared: dict):
     shared['help']['memory-obj'] = 'Find the biggest memory hogs (admins only) || :memory-obj <num>'
     shared['help']['uptime'] = 'Get the current uptime for this bot || :uptime'
 
-    shared['cooldown']['stats'] = 3
+    shared['cooldown']['stats'] = 10
     shared['cooldown']['uptime'] = 3
     shared['cooldown']['memory'] = 3
     shared['cooldown']['memory-obj'] = 3

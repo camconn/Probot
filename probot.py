@@ -509,6 +509,8 @@ def setup(config):
     stats = shared_data['stats']
     stats['num_messages'] = 0
     stats['starttime'] = int(time.time())
+    stats['commands_run'] = 0
+    stats['regex_matches'] = 0
     print('stats:')
     print(shared_data['stats'])
 
@@ -537,6 +539,7 @@ def handle_commands(packet: ircp.Packet, shared: dict):
                 cool = get_cooldown(c, now, shared)
                 shared['cooldown_user'][packet.sender] = cool
                 reply = commands[c](words, packet, shared)
+                shared['stats']['commands_run'] += 1
                 return reply
             elif c[0] in ALLOWABLE_START_CHARS:
                 return packet.notice('Sorry, but the command {1}{0}{2} '
@@ -554,6 +557,7 @@ def handle_regexes(packet: ircp.Packet, shared: dict):
         match = regex.search(packet.text)
         if match is not None:
             print('matched to regex "{}"'.format(re_name))
+            shared['stats']['regex_matches'] += 1
             return shared['re_response'][re_name](match, packet, shared)
 
 
