@@ -17,22 +17,23 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import requests
+from bs4 import BeautifulSoup
+import re
+from urllib.parse import urlparse
+from json import loads
+import html.parser  # NOQA
+import signal
+
+import ircpacket as ircp
+
+
 __plugin_description__ = 'Print information about links'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
 __plugin_type__ = 'regex'
 __plugin_enabled__ = True
 
-
-import requests
-from bs4 import BeautifulSoup
-import re  # use re instead of bs4
-from urllib.parse import urlparse
-from json import loads
-import html.parser
-import signal
-
-import ircpacket as ircp
 
 # From daringfireball.net, a regex of hell:
 URLREGEX = r"""(?i)\b((?:https?:(?:/{1,3}|[a-z0-9%])|[a-z0-9.\-]+[.](?:com|""" \
@@ -82,13 +83,11 @@ WEBSITES = {'www.youtube.com': '1,0You0,4Tube',
             'p.hydra.ws': '1,4HP',
             'paste.hydra.ws': '1,4HP',
             'imgur.com': '9,1● 0imgur',
-            'reddit.com': '4,0Leddit',
-            'www.reddit.com': '4,0Leddit',
-}
+            'reddit.com': '4,0Reddit',
+            'www.reddit.com': '4,0Reddit'}
 
-REQUEST_HEADERS = {
-            'user-agent': 'probot - An IRC Robot (link fetcher plugin)'
-}
+REQUEST_HEADERS = {'user-agent': 'probot - An IRC Robot (link fetcher plugin)'}
+
 
 class TimeoutException(Exception):
     """
@@ -96,8 +95,10 @@ class TimeoutException(Exception):
     """
     pass
 
+
 def _timeout(signum, frame):
     raise TimeoutException()
+
 
 def sizeof_fmt(num, suffix='B'):
     """
@@ -120,67 +121,40 @@ def _get_page_title(link):
     good 'ol workaround with signals for request sizes. Therefore, it should
     stay here until this code is deemed to be stable.
     """
-    #title_re = re.compile('\<title\>.*\<\/title\>', re.IGNORECASE)
-    #title_tag_re = re.compile('\<\/?title\>', re.IGNORECASE)
-    #printable = re.compile('[\W_]+')
-
     signal.signal(signal.SIGALRM, _timeout)
     signal.alarm(3)
 
     title = None
 
     try:
-        #print('fetching {}'.format(link))
         r = requests.get(link, headers=REQUEST_HEADERS, allow_redirects=True, timeout=3)
-  
+
         if r.status_code != requests.codes.ok:
             signal.alarm(0)
             return None
-        #if not 'text' in r.headers['Content-Type']:
-        #    return None
 
-        ##content_escaped = r.raw.read(4096+1, decode_content=True)
-        #print('finding title')
-        #h = html.parser.HTMLParser()
         soup = BeautifulSoup(r.text, 'html.parser')
-  
         title = soup.title.string
-  
-        #escaped_content = h.unescape(str(content_escaped))
-        #content = re.sub('\s+', ' ', escaped_content)
-        #match = title_re.search(content)
-        #print('is it a match?')
-        #print(match)
-        #if match != None:
-        if title != None and len(title) > 0:
-            #title_tagged = match.group()
-            ##print(title_tagged)
-            #title = title_tag_re.sub('', title_tagged)
-            #title = title_tag_re.sub('', title)
+
+        if title is not None and len(title) > 0:
             title = title.replace('\n', '')
             title = title.strip()
-            ##title = printable.sub('',)
-
 
             if len(title) > 100:
                 signal.alarm(0)
                 return '{}...'.format(title[:99])
 
-            #print('found one {}'.format(title))
             signal.alarm(0)
             return title.strip()
         else:
-            #print('found notitle')
-            pass
-    except requests.exceptions.ReadTimeout as e:
-        #print('Timed out m8 :(')
+            print('found notitle')
+    except requests.exceptions.ReadTimeout:
         print('ReadTimeout')
         signal.alarm(0)
-    except requests.exceptions.Timeout as e:
-        #print('Timed out m8 :(')
+    except requests.exceptions.Timeout:
         print('Timeout (Requests)')
         signal.alarm(0)
-    except TimeoutException as timedout:
+    except TimeoutException:
         print('Timeout (TimeoutException)')
         signal.alarm(0)
     finally:
@@ -226,11 +200,10 @@ def _fmt_special_website(page):
             return title
     elif domain == 'kat.cr':
         return title.replace('KickassTorrents', WEBSITES[domain])
-    elif domain == 'mega.co.nz':
+    elif domain == 'mega.co.nz' or domain == 'mega.nz':
         return '[text/html] ' + title.replace('MEGA', WEBSITES[domain])
     elif domain == 'docs.python.org':
         if '\u2014' in title:
-            chop_index = title.find('\u2014')
             parts = title.split('\u2014')
             py_version = parts[1].strip().split()[1]
             fmt_title = '{0}{2}{3} - {1}'.format(WEBSITES[domain], parts[0][:-1], py_version, RESET)
@@ -283,7 +256,6 @@ def _fmt_special_website(page):
         else:
             return title
     elif domain == 'www.reddit.com' or domain == 'reddit.com':
-        #title.replace('Reddit', '')
         return '{0}{2} - {1}'.format(WEBSITES[domain], title.strip(), RESET)
     else:
         print(domain)
@@ -307,13 +279,9 @@ def link_info(link):
         page_head = requests.head(link, allow_redirects=True, timeout=3)
         if page_head.status_code == 404:
             page_head = requests.get(link, allow_redirects=True, timeout=3)
-    except Exception as e:  # If webpage is NOT a web server
+    except Exception:  # If webpage is NOT a web server
         print('Connection Refused. Sorry!')
         return None
-
-    #print(page_head.status_code)
-    #print(page_head.headers)
-    #print('break 1')
 
     content_type = None
     try:
@@ -323,7 +291,6 @@ def link_info(link):
 
     # Check if webpage is a website at all
     if page_head.status_code >= 400:
-        #return '[URL] Response: {}'.format(page_head.status_code)
         title = _get_page_title(link)
         if title:
             return title
@@ -338,10 +305,9 @@ def link_info(link):
         return _fmt_special_website(link)
     # TODO: DO fun stuff for other types of files like PDFs, DOC files, etc.
     elif content_type == 'text/html':  # Get page title if it's an HTML page
-        #print('break 3')
         fmt_type = _format_page_type(content_type)
         page_title = _get_page_title(link)
-        if not page_title: 
+        if not page_title:
             return None
         return '{0} {1}'.format(fmt_type, page_title)
     else:
@@ -358,9 +324,9 @@ def matched_url(match, packet: ircp.Packet, shared: dict):
     print('matched url: {}'.format(matched))
     try:
         title = link_info(matched)
-        if title != None:
+        if title is not None:
             return packet.reply(title)
-    except Exception as e:
+    except Exception:
         print('Failed to parse link: {}'.format(matched))
 
 
@@ -373,4 +339,3 @@ def setup_resources(config: dict, shared: dict):
 
 def setup_commands(all_commands: dict):
     pass
-
