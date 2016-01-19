@@ -32,7 +32,6 @@ import socket
 import logging
 import time
 import os
-import json
 from collections import deque
 import pkgutil
 import asynchat
@@ -51,7 +50,7 @@ else:
     from imp import load_module
 
 import ircpacket as ircp  # NOQA
-from irctools import CLR_NICK, CLR_RESET, require_auth  # NOQA
+from irctools import CLR_NICK, CLR_RESET, CLR_HGLT, require_auth, load_json  # NOQA
 import plugins  # NOQA
 import irc_argparse  # NOQA
 
@@ -438,36 +437,6 @@ def auth_command(arg: tuple, packet: ircp.Packet, shared: dict):
         return packet.notice('Authentication failure. Try again later.')
 
 
-def load_textfile(filename):
-    """Loads multiline message form a text file into a tuple"""
-    with open(filename) as textfile:
-        return tuple(line.strip() for line in textfile)
-
-
-def json_save(filename, dump_dict):
-    """
-    Saves a dictionary to a JSON file
-
-    filename - string of filename to write dump_dict to
-    dump_dict - dictionary object to save
-    """
-    logging.info('saving file')
-    with open(filename, 'wt') as json_file:
-        # We indent so it's human readable. Sort for easy offline editing
-        json.dump(dump_dict, json_file, indent=True, sort_keys=True)
-        logging.info('file saved')
-
-
-def load_json(filename):
-    """ Load and parse a JSON file """
-
-    json_dict = None
-    with open(filename) as jsonfile:
-        json_dict = json.load(jsonfile)
-
-    return json_dict
-
-
 def get_cooldown(command: str, now: float, shared: dict):
     ''' Get the time that a user should be off of their
     cooldown for using a command
@@ -550,6 +519,44 @@ def setup(config):
     return shared_data
 
 
+def handle_commands(packet: ircp.Packet, shared: dict):
+    ''' Handle commands as needed '''
+    if not (len(packet.text) > 1 and packet.text[0] == shared['conf']['prefix']):
+        return None
+
+    now = time.time()
+
+    if (packet.sender not in shared['cooldown_user'] or
+            now > shared['cooldown_user'][packet.sender]):
+        stripped_text = packet.text[1:]
+        words = irc_argparse.parse(stripped_text)
+        if words[0] != '':
+            c = words[0].lower()
+            commands = shared['commands']
+            if c in commands:
+                cool = get_cooldown(c, now, shared)
+                shared['cooldown_user'][packet.sender] = cool
+                reply = commands[c](words, packet, shared)
+                return reply
+            elif c[0] in ALLOWABLE_START_CHARS:
+                return packet.notice('Sorry, but the command {1}{0}{2} '
+                                     'does not exist.'.format(c, CLR_HGLT, CLR_RESET))
+    else:
+        time_left = (shared['cooldown_user'][packet.sender] - int(now))
+        return packet.notice('[Cooldown]: You need to wait for {:.1f} seconds '
+                             'before you can use a command.'.format(time_left))
+
+
+def handle_regexes(packet: ircp.Packet, shared: dict):
+    ''' Handle regex matching and figuring out the output '''
+    for re_name in shared['regexes']:
+        regex = shared['regexes'][re_name]
+        match = regex.search(packet.text)
+        if match is not None:
+            print('matched to regex "{}"'.format(re_name))
+            return shared['re_response'][re_name](match, packet, shared)
+
+
 def handle_incoming(line, shared_data):
     ''' Handles, and replies to incoming IRC messages
 
@@ -557,54 +564,22 @@ def handle_incoming(line, shared_data):
     shared_data - the shared_data with literally everything in it
     '''
     config = shared_data['conf']
-    stats = shared_data['stats']
-    stats['num_messages'] = stats.get('num_messages', 0) + 1
     reply = None  # Reset reply
     msg_packet = ircp.Packet(line)
 
     # Determine if prefix is at beginning of message
     # If it is, then parse for commands
     if msg_packet.msg_type == 'PRIVMSG':
-        # TODO: Move commands out to handle_command()
-        # Do we need to parse mess? If so, parse it
-        msg_text = msg_packet.text
-        if len(msg_text) > 1 and msg_text[0] == config['prefix']:  # If message starts with prefix
-            now = time.time()
-            if (msg_packet.sender not in shared_data['cooldown_user']) or \
-                    (now > shared_data['cooldown_user'][msg_packet.sender]):
-                stripped_text = msg_text[1:]
-                words = irc_argparse.parse(stripped_text)
-                if words[0] != '':
-                    c = words[0].lower()
-                    commands = shared_data['commands']
-
-                    if c in commands:
-                        reply = commands[c](words, msg_packet, shared_data)
-                        cool = get_cooldown(c, now, shared_data)
-                        shared_data['cooldown_user'][msg_packet.sender] = cool
-                    elif c[0] in ALLOWABLE_START_CHARS:
-                        # make sure that we don't respond to a smily
-                        reply = ircp.make_notice('Sorry, but that command does not exist.',
-                                                 msg_packet.sender)
-            else:
-                time_left = (shared_data['cooldown_user'][msg_packet.sender] - int(now))
-                reply = msg_packet.reply(('You need to wait. '
-                                          'Your cooldown ends in {:.1f} seconds').format(time_left))
-        else:
-            # TODO: Move regexes out to handle_regexes()
-            for re_name in shared_data['regexes']:
-                regex = shared_data['regexes'][re_name]
-                match = regex.search(msg_packet.text)
-                if match is not None:
-                    print('matched to regex "{}"'.format(re_name))
-                    reply = shared_data['re_response'][re_name](match, msg_packet, shared_data)
-                    break
+        reply = handle_commands(msg_packet, shared_data)
+        if reply is None:
+            reply = handle_regexes(msg_packet, shared_data)
     elif msg_packet.msg_type == 'NUMERIC':
         if (config['password'] and not config['logged_in'] and
                 msg_packet.numeric == ircp.Packet.numerics['RPL_ENDOFMOTD']):
             reply = []  # pylint: disable=redefined-variable-type
             reply.append(ircp.make_message('identify {} {}'.format(config['bot_nick'],
-                                           config['password']), 'nickserv'))
+                                                                   config['password']),
+                                           'nickserv'))
             for channel in config['channels'].split(' '):
                 reply.append(ircp.join_chan(channel))
             shared_data['conf']['logged_in'] = True  # Stop checking for login numerics
@@ -630,8 +605,6 @@ def handle_incoming(line, shared_data):
         if msg_packet.sender == shared_data['conf']['bot_nick']:
             shared_data['chan'].add(msg_packet.target)
             reply = ircp.make_message(shared_data['conf']['intro'], msg_packet.target)
-    else:
-        pass
 
     if isinstance(reply, int):
         flag = int(reply)
@@ -639,6 +612,7 @@ def handle_incoming(line, shared_data):
         reply.append(flag)  # Makes sure to close out.
 
     shared_data['recent_messages'].append(msg_packet)
+    shared_data['stats']['num_messages'] += 1
 
     return reply
 

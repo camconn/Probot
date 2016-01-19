@@ -17,23 +17,18 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+from random import sample
+import logging
+import ircpacket as ircp
+from irctools import CLR_NICK, CLR_RESET, require_public, load_textfile
+
+
 __plugin_name__ = 'told'
 __plugin_description__ = 'Get told'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
 __plugin_type__ = 'command'
 __plugin_enabled__ = True
-
-CLR_HGLT = '3'
-CLR_RESET = ''
-CLR_NICK = '11'
-
-from os import path
-from random import sample
-#import argparse
-import logging
-import ircpacket as ircp
-from irctools import require_public
 
 
 @require_public
@@ -49,7 +44,7 @@ def told_command(arg, packet, shared, is_told=True):
     else:
         person = ' '.join(arg[1:])
 
-    logging.info('telling {}'.format(person))
+    logging.info('telling %s', person)
 
     told_tuple = shared['told.tuple']
 
@@ -81,13 +76,13 @@ def nottold_command(arg, packet, shared):
 
 
 def setup_resources(config: dict, shared: dict):
-    from os import path
-    with open(path.join(shared['dir'], 'data/told.txt')) as f:
-        shared['told.tuple'] = tuple(line.strip() for line in f)
-    logging.info('loaded party boat :D')
+    import os.path
+    shared['told.tuple'] = load_textfile(os.path.join(shared['dir'], 'data/told.txt'))
+    logging.info('ready to get told?')
 
     shared['help']['told'] = 'Get told hard - :told <person>'
     shared['help']['nottold'] = 'Don\'t get told - :nottold <person>'
+
 
 def setup_commands(all_commands: dict):
     all_commands['told'] = told_command

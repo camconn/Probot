@@ -24,6 +24,8 @@ This file contains constants, decorators, and functions that
 make the life of probot plugin developers easier.
 '''
 
+import logging
+import json
 import ircpacket as ircp
 
 
@@ -71,3 +73,33 @@ def require_public(callback):
         return None
 
     return public_method
+
+
+def load_textfile(filename):
+    """Loads multiline message form a text file into a tuple"""
+    with open(filename) as textfile:
+        return tuple(line.strip() for line in textfile)
+
+
+def json_save(filename, dump_dict):
+    """
+    Saves a dictionary to a JSON file
+
+    filename - string of filename to write dump_dict to
+    dump_dict - dictionary object to save
+    """
+    logging.info('saving file')
+    with open(filename, 'wt') as json_file:
+        # We indent so it's human readable. Sort for easy offline editing
+        json.dump(dump_dict, json_file, indent=True, sort_keys=True)
+        logging.info('file saved')
+
+
+def load_json(filename):
+    """ Load and parse a JSON file """
+
+    json_dict = None
+    with open(filename) as jsonfile:
+        json_dict = json.load(jsonfile)
+
+    return json_dict

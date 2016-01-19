@@ -50,8 +50,6 @@ ALIASES = {'US': 'USD',
            'UDS': 'USD',
            'CRAP': 'USD'}
 
-#OLD_URL = 'https://api.fixer.io/latest?base=USD'
-#CURRENCY_URL = 'https://openexchangerates.org/api/currencies.json'
 API_URL = 'https://openexchangerates.org/api/latest.json?app_id={}'
 
 
@@ -121,22 +119,7 @@ def get_conversion(arg: tuple, shared: dict):
         print('an error occurred')
         return None
 
-    #print(type(initial_amount))
-    #print(initial_amount)
-    #print(type(rate_from))
-    #print(rate_from)
-    #print(type(rate_to))
-    #print(rate_to)
-
-    #print('initial_amount / rate from')
-    #print(initial_amount / rate_from)
-    #print('initial_amount / rate from * rate_to')
-    #print(initial_amount / rate_from * rate_to)
-
-    #print('final_amount: ')
     final_amount = initial_amount / rate_from * rate_to
-
-    #print(final_amount)
 
     return '{} {} is {:.3f} {}'.format(initial_amount, type_from, final_amount, type_to)
 
@@ -152,7 +135,7 @@ def convert_command(arg: tuple, packet: ircp.Packet, shared: dict):
     if conversion == '' or conversion is None:
         return None
     else:
-        return packet.reply(conversion)
+        return packet.reply('{}: {}'.format(packet.sender, conversion))
 
 
 def list_currencies(arg: tuple, packet: ircp.Packet, shared: dict):

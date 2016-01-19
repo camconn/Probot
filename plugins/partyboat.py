@@ -17,6 +17,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import logging
+import ircpacket as ircp
+from irctools import require_public, load_textfile
+from itertools import zip_longest
+
+
 __plugin_description__ = 'Start the party on the seas!'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
@@ -24,14 +30,7 @@ __plugin_type__ = 'command'
 __plugin_enabled__ = True
 
 
-from os import path
-import logging
-from itertools import zip_longest
-import ircpacket as ircp
-from irctools import require_public
-
-
-DEFAULT_MSG = 'HAIL HYDRA'
+DEFAULT_MSG = 'party boat!'
 
 
 @require_public
@@ -39,16 +38,11 @@ def command(arg: tuple, packet: ircp.Packet, shared: dict):
     """
     Prints out a party boat to the chat
     """
-    #print('The party just started')
-    #print('got {}'.format(arg))
-
-    # Discard unwanted whitespace between words
-    #arg = ' '.join(arg.split())
     words = list(arg[1:])
     print('words: {}'.format(words))
 
     if len(words) == 0:
-        words = list('party boat!'.split(' '))
+        words = list(DEFAULT_MSG.split(' '))
     if len(words) == 1:
         if len(words[0]) > 5:
             words.append(words[0][5:])
@@ -60,13 +54,12 @@ def command(arg: tuple, packet: ircp.Packet, shared: dict):
 
     # [:5] is used to keep the argument length to five characters
     # The string '123456' is used to make sure that the zip pairs is at least 5 tuples long
-    
+
     zip_pairs = tuple(zip_longest(words[0][:5], words[1][:5], '123456', fillvalue=' '))
 
     message = []
 
     for num, line in enumerate(shared['boat']):
-        # boat_line = special_color + zip_pairs[num][0] + line + zip_pairs[num][1] + CLR_RESET 
         boat_line = ''
 
         if num != 5:
@@ -78,7 +71,7 @@ def command(arg: tuple, packet: ircp.Packet, shared: dict):
 
                 # pad name to at least 11 chars
                 if len(packet.sender) <= 11:
-                    name = packet.sender + ' '*(11 - len(packet.sender)) + '1,11|'
+                    name = packet.sender + ' ' * (11 - len(packet.sender)) + '1,11|'
                 else:
                     name = packet.sender
 
@@ -96,13 +89,9 @@ def setup_resources(config: dict, shared: dict):
     '''
     Plugin callback to set up shared resources.
     '''
-    # don't care about config
-    import os
-    shared['boat'] = []
-    for line in open(os.path.join(shared['dir'], 'data/boat.txt')):
-        shared['boat'].append(line.replace('\n', ''))
+    import os.path
+    shared['boat'] = load_textfile(os.path.join(shared['dir'], 'data/boat.txt'))
     logging.info('boat loaded')
-    print(shared['boat'])
 
     shared['help']['partyboat'] = 'Start the party boat! || :partyboat [word1] [word2] || :partyboat Hail Hydra'
     shared['help']['pb'] = 'Alias to the :partyboat command'
@@ -117,4 +106,3 @@ def setup_commands(all_parsers):
 
     all_parsers['partyboat'] = command
     all_parsers['pb'] = command
-

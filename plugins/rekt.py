@@ -16,20 +16,20 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# This is a direct translation of plugins/told.py
+
+
+from random import sample
+import logging
+import ircpacket as ircp
+from irctools import CLR_RESET, CLR_NICK, require_public, load_textfile
+
 
 __plugin_description__ = 'Get rekt'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
 __plugin_type__ = 'command'
 __plugin_enabled__ = True
-
-# This is a direct translation of plugins/told.py
-
-from os import path
-from random import sample
-import logging
-import ircpacket as ircp
-from irctools import CLR_HGLT, CLR_RESET, CLR_NICK, require_public
 
 
 @require_public
@@ -45,7 +45,7 @@ def rekt_command(arg, packet, shared, is_rekt=True):
     else:
         person = ' '.join(arg[1:])
 
-    logging.info('telling {}'.format(person))
+    logging.info('reking %s', person)
 
     rekt_tuple = shared['rekt.tuple']
 
@@ -77,15 +77,15 @@ def notrekt_command(arg, packet, shared):
 
 
 def setup_resources(config: dict, shared: dict):
-    from os import path
-    with open(path.join(shared['dir'], 'data/rekt.txt')) as f:
-        shared['rekt.tuple'] = tuple(line.strip() for line in f)
+    import os.path
+    shared['rekt.tuple'] = load_textfile(os.path.join(shared['dir'], 'data/rekt.txt'))
     logging.info('ready to get rekt?')
 
     shared['help']['rekt'] = 'Get rekt hard || :rekt <person> || :rekt your mum'
     shared['help']['notrekt'] = 'Don\'t get rekt || :notrekt <person> || :notrekt me'
     shared['cooldown']['rekt'] = 4
     shared['cooldown']['notrekt'] = 4
+
 
 def setup_commands(all_commands: dict):
     all_commands['rekt'] = rekt_command
