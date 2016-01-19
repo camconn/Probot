@@ -64,9 +64,10 @@ def fortune_command(arg: tuple, packet: ircp.Packet, shared: dict) -> str:
     :moo - alias of cowsay
     '''
     command = None
-    if arg[0].lower() == 'fortune':
+    user_command = arg[0].lower()
+    if user_command == 'fortune':
         command = '{} -a'.format(shared['fortune.path'])
-    elif arg[0].lower() == 'cowsay':
+    elif user_command == 'cowsay' or user_command == 'moo':
         if 'fortune.cowsay' in shared:
             command = '{} -a | {}'.format(shared['fortune.path'], shared['fortune.cowsay'])
         else:
