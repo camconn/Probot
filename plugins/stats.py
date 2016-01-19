@@ -25,11 +25,16 @@ of messages parsed)
 """
 
 
-import tracemalloc
 import datetime
 from irctools import require_auth
 import ircpacket as ircp
 
+HAS_TRACING = False
+try:
+    import tracemalloc
+    HAS_TRACING = True
+except ImportError:
+    pass
 
 __plugin_description__ = 'Stats about this bot'
 __plugin_version__ = 'v0.1'
@@ -110,7 +115,7 @@ def uptime_command(__: tuple, packet: ircp.Packet, shared: dict):
 @require_auth
 def memory_command(args: tuple, packet: ircp.Packet, ___: dict):
     """ Print the biggest memory hogs """
-    if not tracemalloc.is_tracing():
+    if (not HAS_TRACING) or (not tracemalloc.is_tracing()):
         return packet.notice('Sorry, but tracing is currently disabled. '
                              'Please restart probot with the "PYTHONTRACEMALLOC=NFRAME" '
                              'environment variable.')
@@ -135,7 +140,7 @@ def memory_command(args: tuple, packet: ircp.Packet, ___: dict):
 @require_auth
 def memory_obj(args: tuple, packet: ircp.Packet, ___: dict):
     """ Print the biggest memory hogs """
-    if not tracemalloc.is_tracing():
+    if (not HAS_TRACING) or (not tracemalloc.is_tracing()):
         return packet.notice('Sorry, but tracing is currently disabled. '
                              'Please restart probot with the "PYTHONTRACEMALLOC=NFRAME" '
                              'environment variable.')
