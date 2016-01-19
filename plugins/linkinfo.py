@@ -127,7 +127,9 @@ def _get_page_title(link):
     title = None
 
     try:
-        r = requests.get(link, headers=REQUEST_HEADERS, allow_redirects=True, timeout=3)
+        r = requests.get(link, headers=REQUEST_HEADERS,
+                         allow_redirects=True, timeout=3,
+                         encoding='utf-8')
 
         if r.status_code != requests.codes.ok:
             signal.alarm(0)
