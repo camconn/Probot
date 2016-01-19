@@ -178,10 +178,10 @@ def memory_obj(args: tuple, packet: ircp.Packet, ___: dict):
 
 
 def setup_resources(config: dict, shared: dict):
-    shared['help']['stats'] = 'Get simple statistics about this bot (admins only) || :stats'
+    shared['help']['stats'] = 'Get simple statistics about this bot || :stats'
+    shared['help']['uptime'] = 'Get the current uptime for this bot || :uptime'
     shared['help']['memory'] = 'Find the biggest memory hogs (admins only) || :memory [num]'
     shared['help']['memory-obj'] = 'Find the biggest memory hogs (admins only) || :memory-obj <num>'
-    shared['help']['uptime'] = 'Get the current uptime for this bot || :uptime'
 
     shared['cooldown']['stats'] = 10
     shared['cooldown']['uptime'] = 3
