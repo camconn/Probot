@@ -28,14 +28,14 @@ The latest version of this source code is at available at
 https://github.com/camconn/probot
 '''
 
-import socket
+from socket import AF_INET, SOCK_STREAM
 import logging
 import time
-import os
 from collections import deque
-import pkgutil
 import asynchat
 import asyncore
+from os import getcwd, execl
+from os.path import join
 from traceback import format_exc
 from types import GeneratorType
 from sys import stdout, version_info
@@ -65,7 +65,6 @@ PLUGIN_LIST = set()       # Loaded plugins as modules
 DISABLED_PLUGINS = set()  # Disabled plugins (strings)
 FAILED_PLUGINS = set()    # Plugins which failed to load (strings)
 
-# Color codes constants for mIRC
 VERSION = '0.9'
 FORMATTING = 'UTF-8'
 
@@ -90,6 +89,7 @@ class IRCClient(asynchat.async_chat):
         self.nick = nick
         self.shared_data = shared_data
         self.restart = False
+        self.trace = False
 
     def write(self, text):
         ''' Write some text to the open socket '''
@@ -141,7 +141,7 @@ class IRCClient(asynchat.async_chat):
 
     def run(self, host, port):
         ''' Run the client targeted at a host on a port '''
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.create_socket(AF_INET, SOCK_STREAM)
         time.sleep(0.15)
         self.connect((host, port))
         time.sleep(0.1)
@@ -203,7 +203,6 @@ def load_plugins(shared: dict):
 
     This is a bug function, look into breaking it up into smaller things
     '''
-    # print(os.path.join(shared['dir'], 'plugins'))
     # We don't clear DISABLED_PLUGINS because it's just strings that persist
     # between `reloads and restarts
     ALL_PLUGINS.clear()
@@ -224,7 +223,7 @@ def load_plugins(shared: dict):
         reload(plugins)
     else:
         # Python 3.2+
-        pl_path = '{}/plugins/__init__.py'.format(os.getcwd())
+        pl_path = '{}/plugins/__init__.py'.format(getcwd())
         print('looking in {}'.format(pl_path))
         py_file = open(pl_path, 'r')
         # The below lines makes flake8 upset. Let's ignore it.
@@ -232,7 +231,8 @@ def load_plugins(shared: dict):
 
     ALL_PLUGINS.clear()
     # if no modules already enabled
-    for importer, modname, ispkg in pkgutil.iter_modules([os.path.join(shared['dir'], 'plugins')]):  # pylint: disable=unused-variable
+    from pkgutil import iter_modules
+    for importer, modname, ispkg in iter_modules([join(shared['dir'], 'plugins')]):  # pylint: disable=unused-variable
         ALL_PLUGINS.add(modname)
 
     for modname in ALL_PLUGINS:
@@ -247,7 +247,7 @@ def load_plugins(shared: dict):
                 reload(module)
             else:
                 # Python 3.2 - 3.3
-                pl_path = '{}/plugins/{}.py'.format(os.getcwd(), modname)
+                pl_path = '{}/plugins/{}.py'.format(getcwd(), modname)
                 pl_name = 'plugins.{}'.format(modname)
                 print('looking in {}'.format(pl_path))
                 py_file = open(pl_path, 'r')
@@ -494,7 +494,7 @@ def setup(config):
         'conf': config,
         'info': info_str,
         'chan': set(),
-        'dir': os.getcwd(),
+        'dir': getcwd(),
         'commands': commands,
         'help': dict(),
         'regexes': dict(),
@@ -575,7 +575,7 @@ def handle_incoming(line, shared_data):
             reply = handle_regexes(msg_packet, shared_data)
     elif msg_packet.msg_type == 'NUMERIC':
         if (config['password'] and not config['logged_in'] and
-                msg_packet.numeric == ircp.Packet.numerics['RPL_ENDOFMOTD']):
+                msg_packet.numeric == ircp.numerics.RPL_ENDOFMOTD):
             reply = []  # pylint: disable=redefined-variable-type
             reply.append(ircp.make_message('identify {} {}'.format(config['bot_nick'],
                                                                    config['password']),
@@ -583,7 +583,7 @@ def handle_incoming(line, shared_data):
             for channel in config['channels'].split(' '):
                 reply.append(ircp.join_chan(channel))
             shared_data['conf']['logged_in'] = True  # Stop checking for login numerics
-        elif msg_packet.numeric == ircp.Packet.numerics['RPL_ENDOFMOTD']:
+        elif msg_packet.numeric == ircp.numerics.RPL_ENDOFMOTD:
             reply = (ircp.join_chan(c) for c in shared_data['conf']['channels'].split(' '))
 
     elif msg_packet.msg_type == 'PING':
@@ -639,10 +639,10 @@ def main():
     client = IRCClient(bot_nick, shared)
     restart = client.run(server, port)
 
-    if restart:
+    if restart > 0:
         print('restarting')
         stdout.flush()
-        os.execl('./probot.py', '')
+        execl('./probot.py', '')
 
     # Do any needed tying of loose ends
     # Wait for other thread to stop then close pipe

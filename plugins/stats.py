@@ -25,6 +25,7 @@ of messages parsed)
 """
 
 
+import tracemalloc
 import datetime
 from irctools import require_auth
 import ircpacket as ircp
@@ -80,7 +81,7 @@ def _uptime(start_time: int) -> str:
 
 
 @require_auth
-def stats_command(_: tuple, packet: ircp.Packet, shared: dict):
+def stats_command(__: tuple, packet: ircp.Packet, shared: dict):
     """ Print statistical data about this bot """
     stats = shared['stats']
     uptime = _uptime(shared['stats']['starttime'])
@@ -98,7 +99,7 @@ def stats_command(_: tuple, packet: ircp.Packet, shared: dict):
     return output
 
 
-def uptime_command(_: tuple, packet: ircp.Packet, shared: dict):
+def uptime_command(__: tuple, packet: ircp.Packet, shared: dict):
     """ Print current uptime """
     start_time = shared['stats']['starttime']
     uptime = _uptime(start_time)
@@ -106,12 +107,72 @@ def uptime_command(_: tuple, packet: ircp.Packet, shared: dict):
     return packet.reply(uptime)
 
 
+@require_auth
+def memory_command(args: tuple, packet: ircp.Packet, ___: dict):
+    """ Print the biggest memory hogs """
+    if not tracemalloc.is_tracing():
+        return packet.notice('Sorry, but tracing is currently disabled. '
+                             'Please restart probot with the "PYTHONTRACEMALLOC=NFRAME" '
+                             'environment variable.')
+
+    snapshot = tracemalloc.take_snapshot()
+    top_stats = snapshot.statistics('filename')
+
+    num = 15
+    if len(args) >= 2:
+        try:
+            num = int(args[1])
+        except ValueError:
+            num = 15
+
+    output = [packet.notice('Top {} biggest memory hogs:'.format(num))]
+    for num, stat in enumerate(top_stats[:num]):
+        output.append(packet.notice('{}: {}'.format(num, stat)))
+
+    return output
+
+
+@require_auth
+def memory_obj(args: tuple, packet: ircp.Packet, ___: dict):
+    """ Print the biggest memory hogs """
+    if not tracemalloc.is_tracing():
+        return packet.notice('Sorry, but tracing is currently disabled. '
+                             'Please restart probot with the "PYTHONTRACEMALLOC=NFRAME" '
+                             'environment variable.')
+
+    snapshot = tracemalloc.take_snapshot()
+    top_stats = snapshot.statistics('filename')
+
+    num = 0
+    if len(args) >= 2:
+        try:
+            num = int(args[1])
+        except ValueError:
+            return packet.notice('Your argument must be an integer')
+    else:
+        return packet.notice('You must specify an object to inspect!')
+
+    if len(top_stats) >= num:
+        output = [packet.notice('Memory hog #{}'.format(num))]
+        obj = top_stats[num]
+        trace = tracemalloc.get_object_traceback(obj)
+        for line in trace:
+            output.append(packet.notice(line))
+        return output
+    else:
+        return packet.notice('Sorry, but that object does not exist')
+
+
 def setup_resources(config: dict, shared: dict):
     shared['help']['stats'] = 'Get simple statistics about this bot (admins only) || :stats'
+    shared['help']['memory'] = 'Find the biggest memory hogs (admins only) || :memory [num]'
+    shared['help']['memory-obj'] = 'Find the biggest memory hogs (admins only) || :memory-obj <num>'
     shared['help']['uptime'] = 'Get the current uptime for this bot || :uptime'
 
     shared['cooldown']['stats'] = 3
     shared['cooldown']['uptime'] = 3
+    shared['cooldown']['memory'] = 3
+    shared['cooldown']['memory-obj'] = 3
 
 
 def setup_commands(all_commands: dict):
@@ -119,3 +180,5 @@ def setup_commands(all_commands: dict):
 
     com['stats'] = stats_command
     com['uptime'] = uptime_command
+    com['memory'] = memory_command
+    com['memory-obj'] = memory_obj

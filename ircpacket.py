@@ -25,7 +25,57 @@ to make handling IRC a little easier.
 '''
 
 
+from collections import namedtuple
 import re
+
+_Numerics = namedtuple('Numerics',
+                       ('RPL_WELCOME',
+                        'RPL_YOURHOST',
+                        'RPL_CREATED',
+                        'RPL_MYINFO',
+                        'RPL_ISUPPORT',
+                        'RPL_STATSCONN',
+                        'RPL_LUSERCLIENT',
+                        'RPL_LUSEROP',
+                        'RPL_LUSERUNKNOWN',
+                        'RPL_LUSERCHANNELS',
+                        'RPL_LUSERME',
+                        'RPL_LOCALUSERS',
+                        'RPL_GLOBALUSERS',
+                        'RPL_TOPIC',
+                        'RPL_TOPICWHOTIME',
+                        'RPL_NAMREPLY',
+                        'RPL_ENDOFNAMES',
+                        'RPL_INFO',
+                        'RPL_MOTD',
+                        'RPL_MOTDSTART',
+                        'RPL_ENDOFMOTD',
+                        'RPL_HOSTHIDDEN'))
+
+numerics = _Numerics(
+    RPL_WELCOME=1,
+    RPL_YOURHOST=2,
+    RPL_CREATED=3,
+    RPL_MYINFO=4,
+    RPL_ISUPPORT=5,
+    RPL_STATSCONN=250,
+    RPL_LUSERCLIENT=251,
+    RPL_LUSEROP=252,
+    RPL_LUSERUNKNOWN=253,
+    RPL_LUSERCHANNELS=254,
+    RPL_LUSERME=255,
+    RPL_LOCALUSERS=265,
+    RPL_GLOBALUSERS=266,
+    RPL_TOPIC=332,
+    RPL_TOPICWHOTIME=333,
+    RPL_NAMREPLY=353,
+    RPL_ENDOFNAMES=366,
+    RPL_INFO=371,
+    RPL_MOTD=372,
+    RPL_MOTDSTART=375,
+    RPL_ENDOFMOTD=376,
+    RPL_HOSTHIDDEN=396
+)
 
 
 class Packet:  # pylint: disable=too-many-instance-attributes
@@ -41,39 +91,13 @@ class Packet:  # pylint: disable=too-many-instance-attributes
     target - the channel or user this PRIVMSG was directed toward
     msg_type - what type of message this is (e.g. PRIVMSG, JOIN, QUIT, PING, ACTION, numeric, etc.)
     msg_public - whether the message was sent in public chat (i.e. a channel)
-    numeric - what the numeric of this message is (None if not a status message)
     text - text contents of message, if applicable
     is_action - whether the message is an action such as /me or /describe
     nick_from - with NICK commands, tells what nick the user changed from
     nick_to - with NICK commands, tells what nick the user changed to
     """
-
-    # Dictionary of relevant numerics and their codes
-    numerics = {
-        'RPL_WELCOME': 1,
-        'RPL_YOURHOST': 2,
-        'RPL_CREATED': 3,
-        'RPL_MYINFO': 4,
-        'RPL_ISUPPORT': 5,
-        #
-        'RPL_STATSCONN': 250,
-        'RPL_LUSERCLIENT': 251,
-        'RPL_LUSEROP': 252,
-        'RPL_LUSERUNKNOWN': 253,
-        'RPL_LUSERCHANNELS': 254,
-        'RPL_LUSERME': 255,
-        'RPL_LOCALUSERS': 265,
-        'RPL_GLOBALUSERS': 266,
-        #
-        'RPL_TOPIC': 332,
-        'RPL_TOPICWHOTIME': 333,
-        'RPL_NAMREPLY': 353,
-        'RPL_ENDOFNAMES': 366,
-        'RPL_INFO': 371,
-        'RPL_MOTD': 372,
-        'RPL_MOTDSTART': 375,
-        'RPL_ENDOFMOTD': 376,
-        'RPL_HOSTHIDDEN': 396}
+    __slots__ = ('sender', 'host', 'target', 'msg_type',
+                 'numeric', 'text', 'is_action', 'nick_to')
 
     def __init__(self, message):
         """message - full message from socket"""
