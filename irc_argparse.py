@@ -29,8 +29,8 @@ import re
 import logging
 
 
-SYMBOLS = set('!@#$%^&*()_-=[]{}|<>;/?')
-QUOTES = set(""""\'""")
+SYMBOLS = frozenset('^:,.!@#$%^&*()_-=[]{}|<>;/?')
+QUOTES = frozenset(""""\'""")
 
 
 def _pad_str(string, length):

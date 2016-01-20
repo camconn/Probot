@@ -89,9 +89,6 @@ def get_conversion(arg: tuple, shared: dict):
 
     conversions = json.loads(data)
     conversions['rates']['USD'] = str(1.000)
-    #print('conversions:')
-    #print(conversions)
-    #print('='*25)
 
     initial_amount, type_from, type_to = 0.0, '', ''
     try:
@@ -106,9 +103,12 @@ def get_conversion(arg: tuple, shared: dict):
     if type_to in ALIASES:
         type_to = ALIASES[type_to]
 
-    if (type_from not in CURRENCIES) or \
-            (type_to not in CURRENCIES):
-        return 'You must specify a valid currency type. Type :currencies to see available types.'
+    if type_from not in CURRENCIES:
+        return ('"{}" is not a valid currency. '
+                'Type :currencies to see available types.'.format(type_from))
+    if type_to not in CURRENCIES:
+        return ('"{}" is not a valid currency. '
+                'Type :currencies to see available types.'.format(type_to))
 
     rate_from = currency_rate(conversions['rates'], type_from)
     rate_to = currency_rate(conversions['rates'], type_to)
