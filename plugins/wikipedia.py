@@ -17,20 +17,25 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import json
+import requests
+#import pprint
+import ircpacket as ircp
+from irctools import require_public
+
 __plugin_description__ = 'Search wikipedia'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
 __plugin_type__ = 'command'
 __plugin_enabled__ = True
 
-import requests
-import json
-#import pprint
-import ircpacket as ircp
-from irctools import require_public
 
+def get_summary(query: str):
+    '''
+    Get the short summary for a search term
 
-def get_summary(query):
+    query - The term to search for.
+    '''
     BASE = 'https://en.wikipedia.org/w/'
     PAGEBASE = BASE + 'index.php'
     APIBASE = BASE + 'api.php'
@@ -100,9 +105,22 @@ def get_summary(query):
     pageid_sum = list(summary_dict['query']['pages'].keys())[0]
 
     if pageid_sum:
-        summary = summary_dict['query']['pages'][pageid_sum]['extract']
+        summary = summary_dict['query']['pages'][pageid_sum]['extract'].rstrip()
+        #print('summary: ')
+        #print(summary)
+        #print('type: {}'.format(type(summary)))
+        #print('end debug')
+
+        # Add a link to to page location if we know it.
         if page_loc:
-            return summary + ' [{}]'.format(page_loc)
+            summary = '{} [{}]'.format(summary, page_loc)
+
+        if '\n' in summary or '\r' in summary:
+            summary = summary.replace('\r\n', '\n').replace('\r', '\n')
+            #print('split:')
+            #print(summary.split('\n'))
+            #print('end split')
+            return summary.split('\n')
         else:
             return summary
     else:
@@ -111,7 +129,13 @@ def get_summary(query):
 
 @require_public
 def wiki_command(arg, packet, shared):
+    '''
+    The wiki command
 
+    Usage
+    :w George Washington
+    :wiki Monty Python
+    '''
     if len(arg) < 2:
         return ircp.make_notice('You need to list something to search', packet.sender)
 
@@ -122,8 +146,17 @@ def wiki_command(arg, packet, shared):
 
     if summary == '...' or summary is None:
         return None
+    elif isinstance(summary, tuple) or isinstance(summary, list):
+        output = []
+        for line in summary:
+            output.append(ircp.make_message(line.strip(), packet.target))
+        return output
     else:
+        print('summary: ')
+        print(summary)
+        print('that was the last time!')
         return ircp.make_message(summary, packet.target)
+
 
 def setup_resources(config: dict, shared: dict):
     shared['help']['wiki'] = 'Search for a term on the English Wikipedia || :wiki <query> || :wiki Linus Torvalds'

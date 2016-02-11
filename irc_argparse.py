@@ -29,7 +29,7 @@ import re
 import logging
 
 
-SYMBOLS = frozenset('^:,.!@#$%^&*()_-=[]{}|<>;/?')
+SYMBOLS = frozenset('^:,.!@#$%^&*()_+-=[]{}|<>;/?')
 QUOTES = frozenset(""""\'""")
 
 
