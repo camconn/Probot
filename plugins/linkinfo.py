@@ -338,6 +338,7 @@ def setup_resources(config: dict, shared: dict):
     shared['regexes']['url_re'] = url_re
 
     shared['re_response']['url_re'] = matched_url
+    shared['cooldown']['url_re'] = 10
 
 
 def setup_commands(all_commands: dict):

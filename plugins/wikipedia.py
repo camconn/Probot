@@ -40,11 +40,37 @@ def get_summary(query: str):
     PAGEBASE = BASE + 'index.php'
     APIBASE = BASE + 'api.php'
     SEARCHBASE = APIBASE + '?action=opensearch&search='
+    #SEARCHBASE = '{}?action=query&list=search&format=json&srsearch='
     DISAMBIGCAT = 'Category:All disambiguation pages'
+    REDIRBASE = APIBASE + '?action=query&titles={}&redirects&format=json'
 
-    headers = {'user-agent': 'probot-linuxtinkerer'}
+    headers = {'user-agent': 'probot - An IRC Bot (wiki plugin)'}
+    # TODO: Use https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=tape&format=json
+    # TODO: Use https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=sigkill&srprop=redirecttitle|redirectsnippet|sectionsnippet|snippet&format=json
+
+    query = query.replace(' ', '_')
+    print('new query: {}'.format(query))
+
+    # Determine if there's a redirect
+    # TODO: Handle fragments
+    # NOTE: Wikipedia better handles searchs with underscores instead of spaces
+    redir_req = requests.get(REDIRBASE.format(query), headers=headers)
+    if redir_req.status_code == 200:
+        redir_info = json.loads(redir_req.text)
+        if 'redirects' in redir_info['query']:
+            print('found redirect!')
+            #print(redir_info['query']['redirects'])
+            #print(type(redir_info['query']['redirects']))
+            query = redir_info['query']['redirects'][0]['to']
+            print('now using {}'.format(query))
+        elif 'normalized' in redir_info['query']:
+            print('normalizing query')
+            query = redir_info['query']['normalized'][0]['to']
+            print('now using {}'.format(query))
 
     # Get search info to see if anything matches
+    #search_page = '{0}{1}'.format(SEARCHBASE, query)
+    #print('search page: {}'.format(search_page))
     search_page = SEARCHBASE + query
     s_req = requests.get(search_page, headers=headers)
 
@@ -52,12 +78,14 @@ def get_summary(query: str):
 
     if s_req.status_code == 200:
         r_list = json.loads(s_req.text)
+        #print('r_list:')
+        #print(r_list)
     else:  # Some error occurred
         return 'Error: Bad status code: {}'.format(s_req.status_code)
 
     #pprint.pprint(r_list)
 
-    # Check if article is disambiguation
+    #Check if article is disambiguation
     category_api = APIBASE + """?action=query""" \
                              """&titles={}&prop=categories""" \
                              """&format=json&continue=""".format(query)
@@ -71,6 +99,9 @@ def get_summary(query: str):
 
     if 'query' not in article_cat:
         return None
+
+    #if len(r_list) < 1:
+    #    return 'There were no results when searching for "{}"'.format(query)
 
     if 'pages' in article_cat['query']:
         pageid_cat = list(article_cat['query']['pages'].keys())[0]
@@ -112,17 +143,17 @@ def get_summary(query: str):
         #print('end debug')
 
         # Add a link to to page location if we know it.
-        if page_loc:
-            summary = '{} [{}]'.format(summary, page_loc)
-
         if '\n' in summary or '\r' in summary:
             summary = summary.replace('\r\n', '\n').replace('\r', '\n')
             #print('split:')
             #print(summary.split('\n'))
             #print('end split')
-            return summary.split('\n')
-        else:
-            return summary
+            summary = ' '.join(summary.split('\n'))
+
+        if page_loc:
+            summary = '{} [{}]'.format(summary, page_loc)
+
+        return summary
     else:
         return 'Sorry, but I had an error finding a summary of that page.'
 

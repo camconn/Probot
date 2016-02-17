@@ -50,7 +50,7 @@ else:
     from imp import load_module
 
 import ircpacket as ircp  # NOQA
-from irctools import CLR_NICK, CLR_RESET, CLR_HGLT, require_auth, load_json  # NOQA
+from irctools import CLR_NICK, CLR_RESET, CLR_HGLT, require_auth, load_json, penalize_user  # NOQA
 import plugins  # NOQA
 import irc_argparse  # NOQA
 
@@ -236,7 +236,7 @@ def load_plugins(shared: dict):
         ALL_PLUGINS.add(modname)
 
     for modname in ALL_PLUGINS:
-        print('importing {}'.format(modname))
+        print('loading {}'.format(modname))
         ALL_PLUGINS.add(modname)
         try:
             module = None
@@ -249,11 +249,10 @@ def load_plugins(shared: dict):
                 # Python 3.2 - 3.3
                 pl_path = '{}/plugins/{}.py'.format(getcwd(), modname)
                 pl_name = 'plugins.{}'.format(modname)
-                print('looking in {}'.format(pl_path))
+                #print('looking in {}'.format(pl_path))
                 py_file = open(pl_path, 'r')
                 module = load_module(pl_name, py_file, pl_path, desc)
 
-            print('Loaded {}'.format(module))
             # Plugins without __plugin_enabled__ are never loaded.
             if '__plugin_enabled__' in dir(module):
                 PLUGIN_LIST.add(module)
@@ -552,12 +551,24 @@ def handle_commands(packet: ircp.Packet, shared: dict):
 
 def handle_regexes(packet: ircp.Packet, shared: dict):
     ''' Handle regex matching and figuring out the output '''
+    now = time.time()
+
+
     for re_name in shared['regexes']:
         regex = shared['regexes'][re_name]
         match = regex.search(packet.text)
+
         if match is not None:
+            # Penalize users who try to game the system
+            if (packet.sender in shared['cooldown_user'] and
+                    now < shared['cooldown_user'][packet.sender]):
+                penalize_user(packet.sender, shared)
+                return None
+
             print('matched to regex "{}"'.format(re_name))
             shared['stats']['regex_matches'] += 1
+            cool = get_cooldown(re_name, time.time(), shared)
+            shared['cooldown_user'][packet.sender] = cool
             return shared['re_response'][re_name](match, packet, shared)
 
 
@@ -574,6 +585,7 @@ def handle_incoming(line, shared_data):
     # Determine if prefix is at beginning of message
     # If it is, then parse for commands
     if msg_packet.msg_type == 'PRIVMSG':
+        # TODO: Let use know they are being penalized for cooldown
         reply = handle_commands(msg_packet, shared_data)
         if reply is None:
             reply = handle_regexes(msg_packet, shared_data)

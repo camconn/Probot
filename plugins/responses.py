@@ -17,6 +17,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import re
+import ircpacket as ircp
+from irctools import CLR_HGLT, CLR_RESET, CLR_NICK
+
+
 __plugin_description__ = 'Respond to messages from the users.'
 __plugin_version__ = 'v0.1'
 __plugin_author__ = 'Cameron Conn'
@@ -24,14 +29,9 @@ __plugin_type__ = 'regex'
 __plugin_enabled__ = True
 
 
-import re
-import ircpacket as ircp
-from irctools import CLR_HGLT, CLR_RESET, CLR_NICK
-
-
 def respond_greeting(matched, packet: ircp.Packet, shared: dict) -> str:
     ''' Respond to a nice greeting '''
-    return packet.reply('Hey there, {1}{0}{2}!'.format(packet.sender, CLR_NICK, CLR_RESET))
+    return packet.reply('Hello to you too, {1}{0}{2}!'.format(packet.sender, CLR_NICK, CLR_RESET))
 
 
 def respond_good(matched, packet: ircp.Packet, shared: dict) -> str:
@@ -56,7 +56,7 @@ def setup_resources(config: dict, shared: dict):
     nick = config['bot_nick']
 
     # Respond to friendly greetings
-    greeting_re = re.compile('.*(hi|hello|howdy|greetings|salutations|salve|hola|hey|ahoy)\s(there)?.{{0,3}}{0}'.format(nick),
+    greeting_re = re.compile('.*(ha?i|hello|howdy|greetings|salutations|salve|hola|heya?|ahoy)\s(there)?.{{0,3}}{0}'.format(nick),
                              re.IGNORECASE)
     # Respond to nice things
     good_re = re.compile('(\001ACTION)?.{{0,6}}(kiss(es)?|good|pats|pets|love|loves).{{0,6}}{0}.*'.format(nick), re.IGNORECASE)
@@ -78,6 +78,11 @@ def setup_resources(config: dict, shared: dict):
     shared['re_response']['help_re1'] = respond_help
     shared['re_response']['help_re2'] = respond_help
 
+    shared['cooldown']['greeting_re'] = 5
+    shared['cooldown']['good_re'] = 5
+    shared['cooldown']['bad_re'] = 5
+    shared['cooldown']['help_re1'] = 5
+    shared['cooldown']['help_re2'] = 5
 
 def setup_commands(all_commands: dict):
     pass

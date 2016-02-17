@@ -26,6 +26,7 @@ make the life of probot plugin developers easier.
 
 import logging
 import json
+from time import time
 import ircpacket as ircp
 
 
@@ -103,3 +104,16 @@ def load_json(filename):
         json_dict = json.load(jsonfile)
 
     return json_dict
+
+
+def penalize_user(user: str, shared_data: dict):
+    ''' Penalize a user for violating their cooldown '''
+    print('{} has been naughty. Penalizing them now.'.format(user))
+    now = time()
+
+    if (user in shared_data['cooldown_user'] and
+            shared_data['cooldown_user'][user] < now):
+        shared_data['cooldown_user'][user] += 5
+    else:
+        shared_data['cooldown_user'][user] = now + 5
+
